@@ -1,0 +1,16 @@
+html,
+body,
+#game {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(circle at center, #161a31 0%, #070812 70%);
+  color: #e8f8ff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+}
+
+canvas {
+  display: block;
+  box-shadow: 0 0 48px rgba(124, 247, 255, 0.18);
+}
