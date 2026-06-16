@@ -1,0 +1,32 @@
+project:
+  id: "bullet-hell-game"
+  name: "Bullet Hell Game"
+  repo: "Garrin-Project-Labs/project-bullet-hell-game"
+  sourceOfTruth: discord
+
+discord:
+  guildId: "1515020347425030245"
+  channelId: "1516540611136589864"
+  projectsCategoryId: "1516195966330343444"
+  projectCreationChannelId: "1516196374620799127"
+  roles:
+    viewer: "bullet-hell-game-viewer"
+    contributor: "bullet-hell-game-contributor"
+    maintainer: "bullet-hell-game-maintainer"
+
+workflow:
+  taskThreads: automatic
+  taskCommandStyle: natural_language
+  friendlyTaskName: quest
+  requireMention: true
+  jamMode: temporary_ambient
+  branchNaming: "task/<id>-<slug>"
+  requirePlanApproval: true
+  requireMaintainerForDocsAndMemory: true
+  allowBotMergeWithMaintainerApproval: true
+  githubIssues: false
+
+audit:
+  level: medium
+  includePrLinks: true
+  includeDiscordThreadLinks: true

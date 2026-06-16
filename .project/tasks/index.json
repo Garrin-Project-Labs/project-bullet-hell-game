@@ -1,0 +1,19 @@
+{
+  "nextId": 2,
+  "tasks": [
+    {
+      "id": 1,
+      "slug": "choose-first-project-tasks",
+      "title": "Choose the first project tasks from the starting summary",
+      "type": "HITL",
+      "status": "ready",
+      "blockedBy": [],
+      "whatToBuild": "Review the promoted conversation summary and decide which small tasks should be created first. Keep this human-guided so the new Project Space starts cleanly instead of copying raw chat history.",
+      "acceptanceCriteria": [
+        "The starting summary has been reviewed by the maintainer or project participants.",
+        "The first concrete tasks are identified in plain language.",
+        "No raw conversation transcript is copied into the project workspace."
+      ]
+    }
+  ]
+}
