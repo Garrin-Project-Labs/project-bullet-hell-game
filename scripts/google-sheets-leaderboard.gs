@@ -1,8 +1,13 @@
 const SHEET_NAME = 'Leaderboard';
 const LIMIT = 10;
 
-function doGet() {
+function doGet(e) {
   const sheet = getLeaderboardSheet_();
+  if (e && e.parameter && e.parameter.action === 'submit') {
+    const entry = sanitizeEntry_(e.parameter);
+    sheet.appendRow([entry.date, entry.name, entry.score, entry.level, entry.grazes]);
+    trimSheet_(sheet);
+  }
   return json_({ scores: topScores_(sheet) });
 }
 

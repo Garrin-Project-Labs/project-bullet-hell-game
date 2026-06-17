@@ -1124,11 +1124,7 @@ class MainScene extends Phaser.Scene {
     if (!SHARED_LEADERBOARD_URL) return;
     statusText.setText('Submitting shared score...');
     try {
-      const response = await fetch(SHARED_LEADERBOARD_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, score: this.score, level: this.levelIndex + 1, grazes: this.grazes })
-      });
+      const response = await this.sendSharedScore(name);
       if (!response.ok) throw new Error(`leaderboard ${response.status}`);
       const data = await response.json();
       const entries = Array.isArray(data?.scores) ? data.scores : [];
@@ -1139,6 +1135,25 @@ class MainScene extends Phaser.Scene {
     }
     statusText.setText(this.leaderboardStatus);
     leaderboardText.setText(this.formatLeaderboard());
+  }
+
+  private sendSharedScore(name: string) {
+    const payload = { name, score: this.score, level: this.levelIndex + 1, grazes: this.grazes };
+    if (SHARED_LEADERBOARD_URL.includes('script.google.com')) {
+      const url = new URL(SHARED_LEADERBOARD_URL);
+      url.searchParams.set('action', 'submit');
+      url.searchParams.set('name', payload.name);
+      url.searchParams.set('score', String(payload.score));
+      url.searchParams.set('level', String(payload.level));
+      url.searchParams.set('grazes', String(payload.grazes));
+      return fetch(url.toString(), { method: 'GET' });
+    }
+
+    return fetch(SHARED_LEADERBOARD_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
   }
 
   private formatLeaderboard() {
