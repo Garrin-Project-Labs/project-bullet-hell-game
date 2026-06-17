@@ -31,7 +31,7 @@ The existing game client already expects this endpoint shape:
 - `GET` → `{ "scores": [...] }`
 - `POST` JSON `{ name, score, level, grazes }` → `{ "scores": [...] }`
 
-If `VITE_LEADERBOARD_URL` is unset or the script is unavailable, the game falls back to localStorage.
+The live game now expects `VITE_LEADERBOARD_URL` to be configured; if the endpoint is unavailable, scores are not saved locally.
 
 ## Notes
 
