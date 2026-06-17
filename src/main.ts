@@ -11,9 +11,10 @@ const PLAYER_HIT_ELLIPSE_ROTATION = -0.78;
 const BULLET_RADIUS = 5;
 const GRAZE_RADIUS = 20;
 const PLAYER_FIRE_MS = 110;
-const POWER_UP_DROP_CHANCE = 0.08;
+const POWER_UP_DROP_CHANCE = 0.06;
 const POWER_UP_TTL_MS = 3000;
 const POWER_UP_DURATION_MS = 7000;
+const POWER_UP_MIN_GAP_MS = 2200;
 const ATTACK_PATTERN_MS = 5000;
 
 type PowerUpKind = 'big' | 'rapid' | 'spread';
@@ -99,6 +100,7 @@ class MainScene extends Phaser.Scene {
   private activePowerUp?: PowerUpKind;
   private powerUpUntil = 0;
   private levelStartedAt = 0;
+  private lastPowerUpSpawn = -POWER_UP_MIN_GAP_MS;
 
   constructor() {
     super('main');
@@ -124,6 +126,7 @@ class MainScene extends Phaser.Scene {
     this.activePowerUp = undefined;
     this.powerUpUntil = 0;
     this.levelStartedAt = 0;
+    this.lastPowerUpSpawn = -POWER_UP_MIN_GAP_MS;
 
     this.addBackground();
 
@@ -136,10 +139,10 @@ class MainScene extends Phaser.Scene {
 
     this.bullets = this.physics.add.group({ classType: Phaser.GameObjects.Arc, maxSize: 800 });
     this.playerShots = this.physics.add.group({ classType: Phaser.GameObjects.Rectangle, maxSize: 120 });
-    this.powerUps = this.physics.add.group({ classType: Phaser.GameObjects.Star, maxSize: 3 });
+    this.powerUps = this.physics.add.group({ classType: Phaser.GameObjects.Arc, maxSize: 1 });
 
     this.physics.add.overlap(this.player, this.bullets, (_, bullet) => this.checkPlayerBulletHit(bullet as Phaser.GameObjects.Arc));
-    this.powerUpOverlap = this.physics.add.overlap(this.player, this.powerUps, (_, powerUp) => this.collectPowerUp(powerUp as Phaser.GameObjects.Star));
+    this.powerUpOverlap = this.physics.add.overlap(this.player, this.powerUps, (_, powerUp) => this.collectPowerUp(powerUp as Phaser.GameObjects.Arc));
 
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.wasd = this.input.keyboard!.addKeys('W,A,S,D,R') as Record<string, Phaser.Input.Keyboard.Key>;
@@ -175,6 +178,7 @@ class MainScene extends Phaser.Scene {
       this.firePlayerShot(time);
     }
 
+    this.syncPowerUpLabels();
     this.expirePowerUp(time);
     this.updateAttackPatternHud();
     this.cleanupOffscreen();
@@ -583,7 +587,12 @@ class MainScene extends Phaser.Scene {
   }
 
   private maybeSpawnPowerUp(x: number, y: number) {
-    if (this.levelTransitioning || Phaser.Math.FloatBetween(0, 1) > POWER_UP_DROP_CHANCE) return;
+    if (
+      this.levelTransitioning ||
+      this.powerUps.countActive(true) > 0 ||
+      this.time.now - this.lastPowerUpSpawn < POWER_UP_MIN_GAP_MS ||
+      Phaser.Math.FloatBetween(0, 1) > POWER_UP_DROP_CHANCE
+    ) return;
 
     const kinds: PowerUpKind[] = ['big', 'rapid', 'spread'];
     const kind = Phaser.Utils.Array.GetRandom(kinds);
@@ -591,33 +600,46 @@ class MainScene extends Phaser.Scene {
     const powerUp = this.powerUps.get(
       Phaser.Math.Clamp(x + Phaser.Math.Between(-120, 120), 70, WIDTH - 70),
       Phaser.Math.Clamp(y + Phaser.Math.Between(70, 240), 110, HEIGHT - 120),
-      5,
       12,
-      24,
       colors[kind]
-    ) as Phaser.GameObjects.Star | null;
+    ) as Phaser.GameObjects.Arc | null;
 
     if (!powerUp) return;
+    this.lastPowerUpSpawn = this.time.now;
     powerUp.setActive(true).setVisible(true).setData('kind', kind);
     powerUp.setFillStyle(colors[kind], 0.95);
-    powerUp.setStrokeStyle(2, 0xffffff, 0.8);
-    powerUp.setScale(0.75);
-    (powerUp.body as Phaser.Physics.Arcade.Body).setCircle(18).setAllowGravity(false).setVelocity(0, 38);
+    powerUp.setStrokeStyle(2, 0xffffff, 0.9);
+    powerUp.setScale(1);
+    const body = powerUp.body as Phaser.Physics.Arcade.Body;
+    body.setCircle(12).setAllowGravity(false).setVelocity(0, 30);
 
-    this.tweens.add({ targets: powerUp, angle: 360, duration: 900, repeat: -1 });
-    this.tweens.add({ targets: powerUp, scale: 1, yoyo: true, repeat: -1, duration: 420 });
+    const glyphs: Record<PowerUpKind, string> = { big: '+', rapid: 'R', spread: 'S' };
+    const label = this.add.text(powerUp.x, powerUp.y, glyphs[kind], {
+      fontFamily: 'monospace',
+      fontSize: '18px',
+      color: '#1b1020'
+    }).setOrigin(0.5);
+    powerUp.setData('label', label);
+
+    this.tweens.add({ targets: powerUp, scale: 1.18, yoyo: true, repeat: -1, duration: 420 });
     this.time.delayedCall(POWER_UP_TTL_MS, () => {
-      if (powerUp.active) powerUp.destroy();
+      if (powerUp.active) this.destroyPowerUp(powerUp);
     });
   }
 
-  private collectPowerUp(powerUp: Phaser.GameObjects.Star) {
+  private collectPowerUp(powerUp: Phaser.GameObjects.Arc) {
     const kind = powerUp.getData('kind') as PowerUpKind;
-    powerUp.destroy();
+    this.destroyPowerUp(powerUp);
     this.activePowerUp = kind;
     this.powerUpUntil = this.time.now + POWER_UP_DURATION_MS;
     this.spawnPowerUpText(kind);
     this.updateHud();
+  }
+
+  private destroyPowerUp(powerUp: Phaser.GameObjects.Arc) {
+    const label = powerUp.getData('label') as Phaser.GameObjects.Text | undefined;
+    label?.destroy();
+    powerUp.destroy();
   }
 
   private spawnPowerUpText(kind: PowerUpKind) {
@@ -630,6 +652,14 @@ class MainScene extends Phaser.Scene {
       strokeThickness: 4
     }).setOrigin(0.5);
     this.tweens.add({ targets: text, y: text.y - 24, alpha: 0, duration: 700, onComplete: () => text.destroy() });
+  }
+
+  private syncPowerUpLabels() {
+    for (const obj of this.powerUps.getChildren()) {
+      const powerUp = obj as Phaser.GameObjects.Arc;
+      const label = powerUp.getData('label') as Phaser.GameObjects.Text | undefined;
+      if (label) label.setPosition(powerUp.x, powerUp.y);
+    }
   }
 
   private expirePowerUp(time: number) {
