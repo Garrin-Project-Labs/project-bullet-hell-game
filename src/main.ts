@@ -165,8 +165,9 @@ class MainScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private hpText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
-  private bossText!: Phaser.GameObjects.Text;
-  private patternText!: Phaser.GameObjects.Text;
+  private bossBar!: Phaser.GameObjects.Rectangle;
+  private bossBarFill!: Phaser.GameObjects.Rectangle;
+  private bossNameText!: Phaser.GameObjects.Text;
   private powerText!: Phaser.GameObjects.Text;
   private upgradeText!: Phaser.GameObjects.Text;
   private helpText!: Phaser.GameObjects.Text;
@@ -263,8 +264,10 @@ class MainScene extends Phaser.Scene {
     this.scoreText = this.add.text(16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' });
     this.hpText = this.add.text(WIDTH - 16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(1, 0);
     this.levelText = this.add.text(16, 40, '', { fontFamily: 'monospace', fontSize: '16px', color: '#c8f7ff' });
-    this.bossText = this.add.text(WIDTH - 16, 40, '', { fontFamily: 'monospace', fontSize: '16px', color: '#ffd6e6' }).setOrigin(1, 0);
-    this.patternText = this.add.text(WIDTH / 2, 40, '', { fontFamily: 'monospace', fontSize: '14px', color: '#d7ccff' }).setOrigin(0.5, 0);
+    this.add.rectangle(WIDTH / 2, 42, 520, 22, 0x050714, 0.9).setStrokeStyle(2, 0xffffff, 0.22);
+    this.bossBar = this.add.rectangle(WIDTH / 2, 42, 512, 14, 0x24111b, 0.95);
+    this.bossBarFill = this.add.rectangle(WIDTH / 2 - 256, 42, 512, 14, 0xff4d8d, 1).setOrigin(0, 0.5);
+    this.bossNameText = this.add.text(WIDTH / 2, 56, '', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd6e6' }).setOrigin(0.5, 0);
     this.powerText = this.add.text(WIDTH / 2, 12, '', { fontFamily: 'monospace', fontSize: '16px', color: '#fff0a6' }).setOrigin(0.5, 0);
     this.upgradeText = this.add.text(WIDTH / 2, HEIGHT - 58, '', { fontFamily: 'monospace', fontSize: '13px', color: '#c8f7ff' }).setOrigin(0.5, 0);
     this.helpText = this.add.text(16, HEIGHT - 34, 'Move: WASD/Arrows • Shoot: Space • Restart: R', {
@@ -293,7 +296,6 @@ class MainScene extends Phaser.Scene {
 
     this.syncPowerUpLabels();
     this.expirePowerUp(time);
-    this.updateAttackPatternHud();
     this.cleanupOffscreen();
     this.checkGrazes();
   }
@@ -919,16 +921,6 @@ class MainScene extends Phaser.Scene {
     this.powerText?.setText(`${labels[this.activePowerUp]} ${seconds}s`);
   }
 
-  private updateAttackPatternHud() {
-    if (this.gameOver || this.victory || this.levelTransitioning || this.waitingForUpgradeChoice) {
-      this.patternText?.setText('');
-      return;
-    }
-
-    const patternLabels: Record<AttackPattern, string> = { ring: 'Circle Pattern', burst: 'Burst Fan', heavy: 'Heavy Drop', spiral: 'Spiral Crossfire' };
-    this.patternText?.setText(patternLabels[this.currentAttackPattern()]);
-  }
-
   private cleanupOffscreen() {
     const kill = (obj: Phaser.GameObjects.GameObject) => {
       const item = obj as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject;
@@ -954,12 +946,21 @@ class MainScene extends Phaser.Scene {
     const level = LEVELS[this.levelIndex];
     this.scoreText?.setText(`Score ${this.score}  Grazes ${this.grazes}`);
     this.hpText?.setText(`HP ${'♥'.repeat(Math.max(0, this.hp))}`);
-    this.levelText?.setText(`Level ${this.levelIndex + 1}/${LEVELS.length}: ${level.name}`);
-    this.bossText?.setText(`Boss HP ${Math.max(0, this.enemyHp)}/${level.enemyHp}`);
-    this.updateAttackPatternHud();
+    this.levelText?.setText(`Level ${this.levelIndex + 1}/${LEVELS.length}`);
+    this.updateBossHealthBar(level);
     this.updatePowerUpHud();
     const spreadPct = Math.round(Math.min(0.45, this.spreadChanceUpgrades * SPREAD_CHANCE_UPGRADE) * 100);
     this.upgradeText?.setText(`Upgrades: Speed +${this.bulletSpeedUpgrades}  Size +${this.bulletSizeUpgrades}  Spread ${spreadPct}%`);
+  }
+
+  private updateBossHealthBar(level: LevelConfig) {
+    const ratio = Phaser.Math.Clamp(this.enemyHp / level.enemyHp, 0, 1);
+    this.bossBarFill?.setDisplaySize(512 * ratio, 14);
+    this.bossBarFill?.setFillStyle(level.enemyColor, 1);
+    this.bossNameText?.setText(`${level.name}`);
+    this.bossBar?.setVisible(!this.victory);
+    this.bossBarFill?.setVisible(!this.victory);
+    this.bossNameText?.setVisible(!this.victory);
   }
 
   private endGame() {
