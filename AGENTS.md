@@ -6,8 +6,8 @@ Project-specific agent instructions.
 - Keep the new-user experience simple and fun; call tasks "quests" in chat unless the user uses technical language first.
 - Hide engineering ceremony behind friendly flows. Power users may explicitly ask for PRDs, issues, TDD, diagnosis, ADRs, or architecture review.
 - Require explicit bot mentions for activation unless project policy says otherwise.
-- Use branch-per-task: `task/<id>-<slug>`.
-- Do not mutate `main` directly.
+- GitHub Pages is the project test surface; after `npm run build` passes, push gameplay/testing changes directly to `main` so the preview redeploys.
+- Use branch-per-task only when explicitly requested or when work should not hit the live Pages preview yet.
 - Durable docs/memory updates require maintainer approval.
 - Keep secrets, runtime state, and assistant memory out of git.
 
