@@ -11,8 +11,10 @@ const PLAYER_FIRE_MS = 110;
 const POWER_UP_DROP_CHANCE = 0.08;
 const POWER_UP_TTL_MS = 3000;
 const POWER_UP_DURATION_MS = 7000;
+const ATTACK_PATTERN_MS = 5000;
 
 type PowerUpKind = 'big' | 'rapid' | 'spread';
+type AttackPattern = 'ring' | 'burst' | 'heavy' | 'spiral';
 
 type LevelConfig = {
   name: string;
@@ -71,6 +73,7 @@ class MainScene extends Phaser.Scene {
   private hpText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
   private bossText!: Phaser.GameObjects.Text;
+  private patternText!: Phaser.GameObjects.Text;
   private powerText!: Phaser.GameObjects.Text;
   private helpText!: Phaser.GameObjects.Text;
   private overlay?: Phaser.GameObjects.Container;
@@ -92,6 +95,7 @@ class MainScene extends Phaser.Scene {
   private enemyInvulnerableUntil = 0;
   private activePowerUp?: PowerUpKind;
   private powerUpUntil = 0;
+  private levelStartedAt = 0;
 
   constructor() {
     super('main');
@@ -112,6 +116,7 @@ class MainScene extends Phaser.Scene {
     this.enemyInvulnerableUntil = 0;
     this.activePowerUp = undefined;
     this.powerUpUntil = 0;
+    this.levelStartedAt = 0;
 
     this.addBackground();
 
@@ -138,6 +143,7 @@ class MainScene extends Phaser.Scene {
     this.hpText = this.add.text(WIDTH - 16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(1, 0);
     this.levelText = this.add.text(16, 40, '', { fontFamily: 'monospace', fontSize: '16px', color: '#c8f7ff' });
     this.bossText = this.add.text(WIDTH - 16, 40, '', { fontFamily: 'monospace', fontSize: '16px', color: '#ffd6e6' }).setOrigin(1, 0);
+    this.patternText = this.add.text(WIDTH / 2, 40, '', { fontFamily: 'monospace', fontSize: '14px', color: '#d7ccff' }).setOrigin(0.5, 0);
     this.powerText = this.add.text(WIDTH / 2, 12, '', { fontFamily: 'monospace', fontSize: '16px', color: '#fff0a6' }).setOrigin(0.5, 0);
     this.helpText = this.add.text(16, HEIGHT - 34, 'Move: WASD/Arrows • Shoot: Space • Restart: R', {
       fontFamily: 'monospace',
@@ -163,6 +169,7 @@ class MainScene extends Phaser.Scene {
     }
 
     this.expirePowerUp(time);
+    this.updateAttackPatternHud();
     this.cleanupOffscreen();
     this.checkGrazes();
   }
@@ -183,6 +190,7 @@ class MainScene extends Phaser.Scene {
     this.levelIndex = index;
     this.wave = 0;
     this.levelTransitioning = false;
+    this.levelStartedAt = this.time.now;
     this.enemyInvulnerableUntil = this.time.now + 500;
 
     const level = LEVELS[this.levelIndex];
@@ -268,32 +276,92 @@ class MainScene extends Phaser.Scene {
 
     const level = LEVELS[this.levelIndex];
     if (!this.enemy || this.levelTransitioning) return;
+
+    const pattern = this.currentAttackPattern();
     const base = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
-    const scoreBoost = Math.min(8, Math.floor(this.score / 18));
+    const speed = level.bulletSpeed + Math.min(45, this.score * 0.7);
+
+    switch (pattern) {
+      case 'ring':
+        this.fireRingPattern(level, base, speed);
+        break;
+      case 'burst':
+        this.fireBurstPattern(level, base, speed);
+        break;
+      case 'heavy':
+        this.fireHeavyPattern(level, speed);
+        break;
+      case 'spiral':
+        this.fireSpiralPattern(level, speed);
+        break;
+    }
+  }
+
+  private currentAttackPattern(): AttackPattern {
+    const patterns: AttackPattern[] = ['ring', 'burst', 'heavy', 'spiral'];
+    const elapsed = Math.max(0, this.time.now - this.levelStartedAt);
+    return patterns[Math.floor(elapsed / ATTACK_PATTERN_MS) % patterns.length];
+  }
+
+  private fireRingPattern(level: LevelConfig, base: number, speed: number) {
+    const scoreBoost = Math.min(6, Math.floor(this.score / 20));
     const count = level.bulletCount + scoreBoost;
-    const speed = level.bulletSpeed + Math.min(60, this.score);
     const spin = this.wave * level.spin;
 
     for (let i = 0; i < count; i++) {
       const angle = base + spin + (Math.PI * 2 * i) / count;
-      this.spawnEnemyBullet(this.enemy.x, this.enemy.y + 18, angle, speed, 0xffd166);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed, 0xffd166);
+    }
+  }
+
+  private fireBurstPattern(level: LevelConfig, base: number, speed: number) {
+    const fanCount = 5 + this.levelIndex * 2;
+    const spread = 0.72 + this.levelIndex * 0.12;
+    for (let i = 0; i < fanCount; i++) {
+      const offset = Phaser.Math.Linear(-spread, spread, fanCount === 1 ? 0.5 : i / (fanCount - 1));
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base + offset, speed + 75, level.enemyColor);
     }
 
-    if (this.wave % 3 === 0) {
-      for (let i = -2; i <= 2; i++) {
-        this.spawnEnemyBullet(this.enemy.x, this.enemy.y + 18, base + i * 0.12, speed + 90, level.enemyColor);
+    if (this.wave % 2 === 0) {
+      const side = this.wave % 4 === 0 ? -1 : 1;
+      for (let i = 0; i < 4; i++) {
+        this.spawnEnemyBullet(this.enemy!.x + side * 26, this.enemy!.y + 16, base + side * (0.35 + i * 0.12), speed + 35, 0xffd166);
       }
     }
   }
 
-  private spawnEnemyBullet(x: number, y: number, angle: number, speed: number, color: number) {
+  private fireHeavyPattern(level: LevelConfig, speed: number) {
+    const lanes = this.levelIndex >= 2 ? [-78, -26, 26, 78] : [-52, 0, 52];
+    for (const offset of lanes) {
+      const wobble = Math.sin((this.wave + offset) * 0.8) * 0.08;
+      this.spawnEnemyBullet(this.enemy!.x + offset, this.enemy!.y + 30, Math.PI / 2 + wobble, speed * 0.62, level.enemyColor, BULLET_RADIUS * 2.2);
+    }
+
+    if (this.wave % 3 === 0) {
+      const aimed = Phaser.Math.Angle.Between(this.enemy!.x, this.enemy!.y, this.player.x, this.player.y);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, aimed, speed * 0.85, 0xffffff, BULLET_RADIUS * 1.7);
+    }
+  }
+
+  private fireSpiralPattern(level: LevelConfig, speed: number) {
+    const arms = 3 + this.levelIndex;
+    const spin = this.wave * (0.42 + this.levelIndex * 0.08);
+    for (let i = 0; i < arms; i++) {
+      const angle = spin + (Math.PI * 2 * i) / arms;
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed + 25, i % 2 === 0 ? 0xffd166 : level.enemyColor);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle + Math.PI, speed * 0.78, 0x7cf7ff);
+    }
+  }
+
+  private spawnEnemyBullet(x: number, y: number, angle: number, speed: number, color: number, radius = BULLET_RADIUS) {
     const bullet = this.bullets.get(x, y, BULLET_RADIUS, color) as Phaser.GameObjects.Arc | null;
     if (!bullet) return;
     bullet.setActive(true).setVisible(true).setData('grazed', false);
     bullet.setFillStyle(color, 1);
-    bullet.setStrokeStyle(1, 0xffffff, 0.45);
+    bullet.setStrokeStyle(1, 0xffffff, radius > BULLET_RADIUS ? 0.65 : 0.45);
+    bullet.setScale(radius / BULLET_RADIUS);
     const body = bullet.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(BULLET_RADIUS);
+    body.setCircle(radius);
     body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
   }
 
@@ -527,6 +595,15 @@ class MainScene extends Phaser.Scene {
     this.powerText?.setText(`${labels[this.activePowerUp]} ${seconds}s`);
   }
 
+  private updateAttackPatternHud() {
+    if (this.gameOver || this.victory || this.levelTransitioning) {
+      this.patternText?.setText('');
+      return;
+    }
+
+    const patternLabels: Record<AttackPattern, string> = { ring: 'Circle Pattern', burst: 'Burst Fan', heavy: 'Heavy Drop', spiral: 'Spiral Crossfire' };
+    this.patternText?.setText(patternLabels[this.currentAttackPattern()]);
+  }
 
   private cleanupOffscreen() {
     const kill = (obj: Phaser.GameObjects.GameObject) => {
@@ -549,6 +626,7 @@ class MainScene extends Phaser.Scene {
     this.hpText?.setText(`HP ${'♥'.repeat(Math.max(0, this.hp))}`);
     this.levelText?.setText(`Level ${this.levelIndex + 1}/${LEVELS.length}: ${level.name}`);
     this.bossText?.setText(`Boss HP ${Math.max(0, this.enemyHp)}/${level.enemyHp}`);
+    this.updateAttackPatternHud();
     this.updatePowerUpHud();
   }
 
