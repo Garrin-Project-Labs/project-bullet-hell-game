@@ -61,7 +61,7 @@ const LEVELS: LevelConfig[] = [
 ];
 
 class MainScene extends Phaser.Scene {
-  private player!: Phaser.GameObjects.Arc;
+  private player!: Phaser.GameObjects.Image;
   private enemy?: Phaser.GameObjects.Shape | Phaser.GameObjects.Image;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
@@ -124,11 +124,10 @@ class MainScene extends Phaser.Scene {
 
     this.addBackground();
 
-    this.player = this.add.circle(WIDTH / 2, HEIGHT - 80, PLAYER_RADIUS, 0x7cf7ff, 1);
-    this.player.setStrokeStyle(3, 0xffffff, 1);
+    this.player = this.add.image(WIDTH / 2, HEIGHT - 80, 'banana-boss').setScale(0.55);
     this.physics.add.existing(this.player);
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
-    playerBody.setCircle(PLAYER_RADIUS);
+    playerBody.setCircle(PLAYER_RADIUS, 40 - PLAYER_RADIUS, 40 - PLAYER_RADIUS);
     playerBody.setCollideWorldBounds(true);
 
     this.bullets = this.physics.add.group({ classType: Phaser.GameObjects.Arc, maxSize: 800 });
@@ -219,7 +218,7 @@ class MainScene extends Phaser.Scene {
     } else if (this.levelIndex === 1) {
       this.enemy = this.add.rectangle(WIDTH / 2, 85, 50, 50, level.enemyColor, 1).setRotation(Math.PI / 4);
     } else {
-      this.enemy = this.add.image(WIDTH / 2, 85, 'banana-boss').setScale(0.95);
+      this.enemy = this.add.circle(WIDTH / 2, 85, 28, level.enemyColor, 1);
     }
 
     this.setEnemyStroke();
@@ -672,7 +671,7 @@ class MainScene extends Phaser.Scene {
     this.gameOver = true;
     this.enemyFireEvent?.remove(false);
     (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
-    this.player.setFillStyle(0xff3355, 1);
+    this.player.setTint(0xff3355);
 
     const panel = this.add.rectangle(0, 0, 430, 190, 0x050714, 0.92).setStrokeStyle(2, 0x7cf7ff, 0.8);
     const title = this.add.text(0, -58, 'GAME OVER', { fontFamily: 'monospace', fontSize: '36px', color: '#ff5d73' }).setOrigin(0.5);
