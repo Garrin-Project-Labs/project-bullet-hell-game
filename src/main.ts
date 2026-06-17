@@ -37,30 +37,30 @@ const LEVELS: LevelConfig[] = [
     background: '#080914',
     enemyColor: 0xff4d8d,
     enemyHp: 12,
-    fireMs: 560,
-    bulletCount: 14,
-    bulletSpeed: 105,
-    spin: 0.18
+    fireMs: 720,
+    bulletCount: 8,
+    bulletSpeed: 90,
+    spin: 0.14
   },
   {
     name: 'Emerald Drift',
     background: '#071611',
     enemyColor: 0x43ff91,
     enemyHp: 18,
-    fireMs: 470,
-    bulletCount: 18,
-    bulletSpeed: 135,
-    spin: 0.25
+    fireMs: 655,
+    bulletCount: 9,
+    bulletSpeed: 100,
+    spin: 0.16
   },
   {
     name: 'Crimson Core',
     background: '#18070c',
     enemyColor: 0xff5d73,
     enemyHp: 26,
-    fireMs: 390,
-    bulletCount: 22,
-    bulletSpeed: 165,
-    spin: 0.32
+    fireMs: 595,
+    bulletCount: 10,
+    bulletSpeed: 110,
+    spin: 0.18
   }
 ];
 
@@ -324,7 +324,7 @@ class MainScene extends Phaser.Scene {
 
     const pattern = this.currentAttackPattern();
     const base = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
-    const speed = level.bulletSpeed + Math.min(45, this.score * 0.7);
+    const speed = level.bulletSpeed + Math.min(25, this.score * 0.35);
 
     switch (pattern) {
       case 'ring':
@@ -349,7 +349,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private fireRingPattern(level: LevelConfig, base: number, speed: number) {
-    const scoreBoost = Math.min(6, Math.floor(this.score / 20));
+    const scoreBoost = Math.min(3, Math.floor(this.score / 28));
     const count = level.bulletCount + scoreBoost;
     const spin = this.wave * level.spin;
 
@@ -360,8 +360,8 @@ class MainScene extends Phaser.Scene {
   }
 
   private fireBurstPattern(level: LevelConfig, base: number, speed: number) {
-    const fanCount = 5 + this.levelIndex * 2;
-    const spread = 0.72 + this.levelIndex * 0.12;
+    const fanCount = 4 + this.levelIndex;
+    const spread = 0.55 + this.levelIndex * 0.08;
     for (let i = 0; i < fanCount; i++) {
       const offset = Phaser.Math.Linear(-spread, spread, fanCount === 1 ? 0.5 : i / (fanCount - 1));
       this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base + offset, speed + 75, level.enemyColor);
@@ -376,7 +376,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private fireHeavyPattern(level: LevelConfig, speed: number) {
-    const lanes = this.levelIndex >= 2 ? [-78, -26, 26, 78] : [-52, 0, 52];
+    const lanes = this.levelIndex === 0 ? [0] : this.levelIndex === 1 ? [-38, 38] : [-56, 0, 56];
     for (const offset of lanes) {
       const wobble = Math.sin((this.wave + offset) * 0.8) * 0.08;
       this.spawnEnemyBullet(this.enemy!.x + offset, this.enemy!.y + 30, Math.PI / 2 + wobble, speed * 0.62, level.enemyColor, BULLET_RADIUS * 2.2);
@@ -389,7 +389,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private fireSpiralPattern(level: LevelConfig, speed: number) {
-    const arms = 3 + this.levelIndex;
+    const arms = 2 + this.levelIndex;
     const spin = this.wave * (0.42 + this.levelIndex * 0.08);
     for (let i = 0; i < arms; i++) {
       const angle = spin + (Math.PI * 2 * i) / arms;
