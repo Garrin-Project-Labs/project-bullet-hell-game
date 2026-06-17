@@ -15,6 +15,7 @@ class MainScene extends Phaser.Scene {
   private enemy!: Phaser.GameObjects.Triangle;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
+  private fireKey!: Phaser.Input.Keyboard.Key;
   private bullets!: Phaser.Physics.Arcade.Group;
   private playerShots!: Phaser.Physics.Arcade.Group;
   private scoreText!: Phaser.GameObjects.Text;
@@ -64,7 +65,9 @@ class MainScene extends Phaser.Scene {
     this.physics.add.overlap(this.enemy, this.playerShots, (_, shot) => this.hitEnemy(shot as Phaser.GameObjects.Rectangle));
 
     this.cursors = this.input.keyboard!.createCursorKeys();
-    this.wasd = this.input.keyboard!.addKeys('W,A,S,D,SPACE,R') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.wasd = this.input.keyboard!.addKeys('W,A,S,D,R') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.fireKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.input.keyboard!.addCapture([Phaser.Input.Keyboard.KeyCodes.SPACE]);
 
     this.scoreText = this.add.text(16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' });
     this.hpText = this.add.text(WIDTH - 16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(1, 0);
@@ -88,7 +91,7 @@ class MainScene extends Phaser.Scene {
     this.movePlayer(delta);
     this.moveEnemy(time);
 
-    if ((this.cursors.space?.isDown || this.wasd.SPACE.isDown) && time - this.lastPlayerFire > PLAYER_FIRE_MS) {
+    if (this.fireKey.isDown && time - this.lastPlayerFire > PLAYER_FIRE_MS) {
       this.firePlayerShot(time);
     }
 
@@ -162,11 +165,13 @@ class MainScene extends Phaser.Scene {
 
   private firePlayerShot(time: number) {
     this.lastPlayerFire = time;
-    const shot = this.playerShots.get(this.player.x, this.player.y - 16, 5, 16, 0x9cff6a) as Phaser.GameObjects.Rectangle | null;
+    const shot = this.playerShots.get(this.player.x, this.player.y - 18, 8, 22, 0x9cff6a) as Phaser.GameObjects.Rectangle | null;
     if (!shot) return;
     shot.setActive(true).setVisible(true);
+    shot.setFillStyle(0x9cff6a, 1);
+    shot.setStrokeStyle(1, 0xffffff, 0.7);
     const body = shot.body as Phaser.Physics.Arcade.Body;
-    body.setSize(5, 16);
+    body.setSize(8, 22);
     body.setVelocity(0, -520);
   }
 
