@@ -9,8 +9,8 @@ const PLAYER_RADIUS = 10;
 const PLAYER_HIT_ELLIPSE_X = 15;
 const PLAYER_HIT_ELLIPSE_Y = 21;
 const PLAYER_HIT_ELLIPSE_ROTATION = -0.78;
-const BULLET_RADIUS = 6;
-const MIN_ENEMY_BULLET_RADIUS = 6;
+const BULLET_RADIUS = 8;
+const MIN_ENEMY_BULLET_RADIUS = 8;
 const GRAZE_RADIUS = 20;
 const PLAYER_FIRE_MS = 170;
 const BASE_PLAYER_SHOT_SPEED = 440;
@@ -511,7 +511,7 @@ class MainScene extends Phaser.Scene {
 
     for (let i = 0; i < count; i++) {
       const angle = base + spin + (Math.PI * 2 * i) / count;
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed, 0xffd166, 7);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed, 0xffd166, 9);
     }
   }
 
@@ -520,13 +520,13 @@ class MainScene extends Phaser.Scene {
     const spread = 0.55 + Math.min(0.45, this.levelIndex * 0.05);
     for (let i = 0; i < fanCount; i++) {
       const offset = Phaser.Math.Linear(-spread, spread, fanCount === 1 ? 0.5 : i / (fanCount - 1));
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base + offset, speed + 75, 0xff6b9d, 7);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base + offset, speed + 75, 0xff6b9d, 9);
     }
 
     if (this.wave % 2 === 0) {
       const side = this.wave % 4 === 0 ? -1 : 1;
       for (let i = 0; i < 4; i++) {
-        this.spawnEnemyBullet(this.enemy!.x + side * 26, this.enemy!.y + 16, base + side * (0.35 + i * 0.12), speed + 35, 0xfff06a, 7);
+        this.spawnEnemyBullet(this.enemy!.x + side * 26, this.enemy!.y + 16, base + side * (0.35 + i * 0.12), speed + 35, 0xfff06a, 9);
       }
     }
   }
@@ -549,8 +549,8 @@ class MainScene extends Phaser.Scene {
     const spin = this.wave * (0.42 + this.levelIndex * 0.08);
     for (let i = 0; i < arms; i++) {
       const angle = spin + (Math.PI * 2 * i) / arms;
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed + 25, i % 2 === 0 ? 0xffd166 : 0xc77dff, 7);
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle + Math.PI, speed * 0.78, 0x7cf7ff, 7);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed + 25, i % 2 === 0 ? 0xffd166 : 0xc77dff, 9);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle + Math.PI, speed * 0.78, 0x7cf7ff, 9);
     }
   }
 
@@ -560,9 +560,10 @@ class MainScene extends Phaser.Scene {
     if (!bullet) return;
     bullet.setActive(true).setVisible(true).setData('grazed', false);
     bullet.setFillStyle(color, 1);
-    bullet.setStrokeStyle(2, 0xffffff, 0.85);
+    bullet.setStrokeStyle(3, 0xffffff, 0.95);
     bullet.setScale(visibleRadius / BULLET_RADIUS);
     bullet.setBlendMode(Phaser.BlendModes.ADD);
+    bullet.setData('hitRadius', visibleRadius);
     const body = bullet.body as Phaser.Physics.Arcade.Body;
     body.setCircle(visibleRadius);
     body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
@@ -787,7 +788,7 @@ class MainScene extends Phaser.Scene {
     const sin = Math.sin(PLAYER_HIT_ELLIPSE_ROTATION);
     const localX = dx * cos - dy * sin;
     const localY = dx * sin + dy * cos;
-    const radius = BULLET_RADIUS;
+    const radius = Number(bullet.getData('hitRadius') || BULLET_RADIUS);
     const normalized =
       (localX * localX) / Math.pow(PLAYER_HIT_ELLIPSE_X + radius, 2) +
       (localY * localY) / Math.pow(PLAYER_HIT_ELLIPSE_Y + radius, 2);
@@ -809,7 +810,8 @@ class MainScene extends Phaser.Scene {
       const bullet = obj as Phaser.GameObjects.Arc;
       if (!bullet.active || bullet.getData('grazed')) continue;
       const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, bullet.x, bullet.y);
-      if (dist > PLAYER_RADIUS + BULLET_RADIUS && dist < GRAZE_RADIUS) {
+      const radius = Number(bullet.getData('hitRadius') || BULLET_RADIUS);
+      if (dist > PLAYER_RADIUS + radius && dist < GRAZE_RADIUS + radius) {
         bullet.setData('grazed', true);
         this.grazes++;
         this.score += 2;
