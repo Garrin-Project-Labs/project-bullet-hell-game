@@ -3,6 +3,7 @@ import './style.css';
 
 const WIDTH = 800;
 const HEIGHT = 600;
+const PLAY_TOP = 88;
 const PLAYER_SPEED = 270;
 const PLAYER_RADIUS = 10;
 const PLAYER_HIT_ELLIPSE_X = 15;
@@ -264,10 +265,11 @@ class MainScene extends Phaser.Scene {
     this.scoreText = this.add.text(16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' });
     this.hpText = this.add.text(WIDTH - 16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(1, 0);
     this.levelText = this.add.text(16, 40, '', { fontFamily: 'monospace', fontSize: '16px', color: '#c8f7ff' });
-    this.add.rectangle(WIDTH / 2, 42, 520, 22, 0x050714, 0.9).setStrokeStyle(2, 0xffffff, 0.22);
-    this.bossBar = this.add.rectangle(WIDTH / 2, 42, 512, 14, 0x24111b, 0.95);
-    this.bossBarFill = this.add.rectangle(WIDTH / 2 - 256, 42, 512, 14, 0xff4d8d, 1).setOrigin(0, 0.5);
-    this.bossNameText = this.add.text(WIDTH / 2, 56, '', { fontFamily: 'monospace', fontSize: '13px', color: '#ffd6e6' }).setOrigin(0.5, 0);
+    this.add.rectangle(WIDTH / 2, 70, WIDTH - 18, 2, 0x28344f, 0.8);
+    this.add.rectangle(WIDTH / 2, 30, 560, 26, 0x050714, 0.92).setStrokeStyle(2, 0x7cf7ff, 0.28);
+    this.bossBar = this.add.rectangle(WIDTH / 2, 30, 548, 16, 0x24111b, 0.95);
+    this.bossBarFill = this.add.rectangle(WIDTH / 2 - 274, 30, 548, 16, 0xff4d8d, 1).setOrigin(0, 0.5);
+    this.bossNameText = this.add.text(WIDTH / 2, 45, '', { fontFamily: 'monospace', fontSize: '12px', color: '#ffd6e6' }).setOrigin(0.5, 0);
     this.powerText = this.add.text(WIDTH / 2, 12, '', { fontFamily: 'monospace', fontSize: '16px', color: '#fff0a6' }).setOrigin(0.5, 0);
     this.upgradeText = this.add.text(WIDTH / 2, HEIGHT - 58, '', { fontFamily: 'monospace', fontSize: '13px', color: '#c8f7ff' }).setOrigin(0.5, 0);
     this.helpText = this.add.text(16, HEIGHT - 34, 'Move: WASD/Arrows • Shoot: Space • Restart: R', {
@@ -309,7 +311,7 @@ class MainScene extends Phaser.Scene {
       const size = Phaser.Math.FloatBetween(0.7, 2.2);
       this.add.circle(x, y, size, 0xffffff, alpha);
     }
-    this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH - 18, HEIGHT - 18).setStrokeStyle(2, 0x28344f, 0.8);
+    this.add.rectangle(WIDTH / 2, (HEIGHT + PLAY_TOP) / 2, WIDTH - 18, HEIGHT - PLAY_TOP - 9).setStrokeStyle(2, 0x28344f, 0.8);
   }
 
   private startLevel(index: number) {
@@ -340,15 +342,15 @@ class MainScene extends Phaser.Scene {
 
     const shape = this.levelIndex % 4;
     if (shape === 0) {
-      this.enemy = this.add.triangle(WIDTH / 2, 85, 0, 34, 26, 0, 52, 34, level.enemyColor, 1);
+      this.enemy = this.add.triangle(WIDTH / 2, PLAY_TOP + 28, 0, 34, 26, 0, 52, 34, level.enemyColor, 1);
     } else if (shape === 1) {
-      this.enemy = this.add.rectangle(WIDTH / 2, 85, 50, 50, level.enemyColor, 1).setRotation(Math.PI / 4);
+      this.enemy = this.add.rectangle(WIDTH / 2, PLAY_TOP + 28, 50, 50, level.enemyColor, 1).setRotation(Math.PI / 4);
     } else if (shape === 2) {
-      this.enemy = this.add.circle(WIDTH / 2, 85, 28, level.enemyColor, 1);
+      this.enemy = this.add.circle(WIDTH / 2, PLAY_TOP + 28, 28, level.enemyColor, 1);
     } else if (this.levelIndex === LEVELS.length - 1) {
-      this.enemy = this.add.image(WIDTH / 2, 88, 'final-boss').setScale(0.92);
+      this.enemy = this.add.image(WIDTH / 2, PLAY_TOP + 36, 'final-boss').setScale(0.92);
     } else {
-      this.enemy = this.add.star(WIDTH / 2, 85, 5, 18, 34, level.enemyColor, 1);
+      this.enemy = this.add.star(WIDTH / 2, PLAY_TOP + 28, 5, 18, 34, level.enemyColor, 1);
     }
 
     this.setEnemyStroke();
@@ -440,7 +442,7 @@ class MainScene extends Phaser.Scene {
     const t = (time - this.levelStartedAt) / 1000;
     const phase = t + this.enemyMoveSeed;
     let x = WIDTH / 2;
-    let y = 82;
+    let y = PLAY_TOP + 28;
 
     switch (this.enemyMovePattern) {
       case 'sway':
@@ -462,7 +464,7 @@ class MainScene extends Phaser.Scene {
     }
 
     this.enemy.x = Phaser.Math.Clamp(x, 70, WIDTH - 70);
-    this.enemy.y = Phaser.Math.Clamp(y, 58, 145);
+    this.enemy.y = Phaser.Math.Clamp(y, PLAY_TOP + 16, PLAY_TOP + 92);
     if (!(this.enemy instanceof Phaser.GameObjects.Image)) {
       this.enemy.rotation += 0.002 + this.levelIndex * 0.001;
     }
@@ -668,19 +670,22 @@ class MainScene extends Phaser.Scene {
     this.waitingForUpgradeChoice = true;
     this.levelTransitioning = true;
     this.clearProjectiles();
-    const panel = this.add.rectangle(0, 0, 650, 250, 0x050714, 0.94).setStrokeStyle(2, 0x7cf7ff, 0.85);
-    const title = this.add.text(0, -92, 'CHOOSE A POWER-UP', {
+    const panelGlow = this.add.rectangle(0, 0, 680, 278, 0x7cf7ff, 0.08).setBlendMode(Phaser.BlendModes.ADD);
+    const panel = this.add.rectangle(0, 0, 660, 260, 0x050714, 0.96).setStrokeStyle(2, 0x7cf7ff, 0.75);
+    const title = this.add.text(0, -104, 'CHOOSE A POWER-UP', {
       fontFamily: 'monospace',
       fontSize: '28px',
-      color: '#ffffff'
+      color: '#ffffff',
+      stroke: '#7cf7ff',
+      strokeThickness: 1
     }).setOrigin(0.5);
-    const hint = this.add.text(0, -60, 'Click a card or press 1 / 2 / 3', {
+    const hint = this.add.text(0, -72, 'Click a card or press 1 / 2 / 3', {
       fontFamily: 'monospace',
       fontSize: '14px',
       color: '#a9bad1'
     }).setOrigin(0.5);
 
-    const overlay = this.add.container(WIDTH / 2, HEIGHT / 2, [panel, title, hint]);
+    const overlay = this.add.container(WIDTH / 2, HEIGHT / 2, [panelGlow, panel, title, hint]);
     const choices: Array<{ kind: UpgradeKind; title: string; description: string; color: number }> = [
       { kind: 'speed', title: 'Faster Bullets', description: '+ projectile speed', color: 0x7cf7ff },
       { kind: 'size', title: 'Larger Bullets', description: '+ shot size', color: 0xffd166 },
@@ -702,16 +707,28 @@ class MainScene extends Phaser.Scene {
 
     choices.forEach((choice, index) => {
       const x = -210 + index * 210;
+      const glow = this.add.rectangle(x, 36, 188, 128, choice.color, 0.08).setBlendMode(Phaser.BlendModes.ADD);
       const card = this.add.rectangle(x, 36, 180, 120, 0x11182a, 0.98)
         .setStrokeStyle(2, choice.color, 0.9)
         .setInteractive({ useHandCursor: true });
-      const number = this.add.text(x - 76, -12, `${index + 1}`, { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
+      const topLine = this.add.rectangle(x, -22, 150, 3, choice.color, 0.95).setBlendMode(Phaser.BlendModes.ADD);
+      const numberBadge = this.add.circle(x - 70, -8, 14, choice.color, 0.92);
+      const number = this.add.text(x - 70, -8, `${index + 1}`, { fontFamily: 'monospace', fontSize: '16px', color: '#050714' }).setOrigin(0.5);
       const cardTitle = this.add.text(x, 20, choice.title, { fontFamily: 'monospace', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5);
-      const description = this.add.text(x, 48, choice.description, { fontFamily: 'monospace', fontSize: '13px', color: '#a9bad1' }).setOrigin(0.5);
+      const description = this.add.text(x, 50, choice.description, { fontFamily: 'monospace', fontSize: '13px', color: '#a9bad1' }).setOrigin(0.5);
       card.on('pointerdown', () => choose(choice.kind));
-      card.on('pointerover', () => card.setFillStyle(0x1c2742, 1));
-      card.on('pointerout', () => card.setFillStyle(0x11182a, 0.98));
-      overlay.add([card, number, cardTitle, description]);
+      card.on('pointerover', () => {
+        card.setFillStyle(0x1c2742, 1);
+        glow.setAlpha(0.18);
+        topLine.setDisplaySize(170, 3);
+      });
+      card.on('pointerout', () => {
+        card.setFillStyle(0x11182a, 0.98);
+        glow.setAlpha(0.08);
+        topLine.setDisplaySize(150, 3);
+      });
+      this.tweens.add({ targets: glow, alpha: 0.14, yoyo: true, repeat: -1, duration: 650 + index * 90 });
+      overlay.add([glow, card, topLine, numberBadge, number, cardTitle, description]);
     });
 
     this.input.keyboard?.once('keydown-ONE', () => choose('speed'));
@@ -955,7 +972,7 @@ class MainScene extends Phaser.Scene {
 
   private updateBossHealthBar(level: LevelConfig) {
     const ratio = Phaser.Math.Clamp(this.enemyHp / level.enemyHp, 0, 1);
-    this.bossBarFill?.setDisplaySize(512 * ratio, 14);
+    this.bossBarFill?.setDisplaySize(548 * ratio, 16);
     this.bossBarFill?.setFillStyle(level.enemyColor, 1);
     this.bossNameText?.setText(`${level.name}`);
     this.bossBar?.setVisible(!this.victory);
