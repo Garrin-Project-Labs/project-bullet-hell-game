@@ -279,7 +279,13 @@ class MainScene extends Phaser.Scene {
     this.enemyHp--;
     this.score++;
     this.enemy.setFillStyle(0xffffff, 1);
-    this.cameras.main.flash(45, 255, 255, 255, false);
+    this.tweens.add({
+      targets: this.enemy,
+      scaleX: 1.12,
+      scaleY: 1.12,
+      yoyo: true,
+      duration: 35
+    });
     this.time.delayedCall(55, () => this.enemy?.setFillStyle(LEVELS[this.levelIndex].enemyColor, 1));
     this.updateHud();
 
