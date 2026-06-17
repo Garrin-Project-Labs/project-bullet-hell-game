@@ -191,6 +191,7 @@ class MainScene extends Phaser.Scene {
 
   preload() {
     this.load.svg('banana-boss', 'assets/banana-boss.svg', { width: 80, height: 80 });
+    this.load.svg('final-boss', 'assets/final-boss.svg', { width: 96, height: 96 });
   }
 
   create() {
@@ -320,6 +321,8 @@ class MainScene extends Phaser.Scene {
       this.enemy = this.add.rectangle(WIDTH / 2, 85, 50, 50, level.enemyColor, 1).setRotation(Math.PI / 4);
     } else if (shape === 2) {
       this.enemy = this.add.circle(WIDTH / 2, 85, 28, level.enemyColor, 1);
+    } else if (this.levelIndex === LEVELS.length - 1) {
+      this.enemy = this.add.image(WIDTH / 2, 88, 'final-boss').setScale(0.92);
     } else {
       this.enemy = this.add.star(WIDTH / 2, 85, 5, 18, 34, level.enemyColor, 1);
     }
@@ -328,8 +331,8 @@ class MainScene extends Phaser.Scene {
     this.physics.add.existing(this.enemy);
     const body = this.enemy.body as Phaser.Physics.Arcade.Body;
     if (this.enemy instanceof Phaser.GameObjects.Image) {
-      body.setSize(58, 54);
-      body.setOffset(11, 13);
+      body.setSize(46, 80);
+      body.setOffset(25, 10);
     }
     body.setImmovable(true);
     body.setAllowGravity(false);
@@ -436,7 +439,9 @@ class MainScene extends Phaser.Scene {
 
     this.enemy.x = Phaser.Math.Clamp(x, 70, WIDTH - 70);
     this.enemy.y = Phaser.Math.Clamp(y, 58, 145);
-    this.enemy.rotation += 0.002 + this.levelIndex * 0.001;
+    if (!(this.enemy instanceof Phaser.GameObjects.Image)) {
+      this.enemy.rotation += 0.002 + this.levelIndex * 0.001;
+    }
     this.setEnemyFill(level.enemyColor);
     (this.enemy.body as Phaser.Physics.Arcade.Body).updateFromGameObject();
   }
