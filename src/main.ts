@@ -81,6 +81,7 @@ class MainScene extends Phaser.Scene {
   private gameOver = false;
   private victory = false;
   private levelTransitioning = false;
+  private enemyInvulnerableUntil = 0;
 
   constructor() {
     super('main');
@@ -98,6 +99,7 @@ class MainScene extends Phaser.Scene {
     this.gameOver = false;
     this.victory = false;
     this.levelTransitioning = false;
+    this.enemyInvulnerableUntil = 0;
 
     this.addBackground();
 
@@ -165,6 +167,7 @@ class MainScene extends Phaser.Scene {
     this.levelIndex = index;
     this.wave = 0;
     this.levelTransitioning = false;
+    this.enemyInvulnerableUntil = this.time.now + 500;
 
     const level = LEVELS[this.levelIndex];
     this.enemyHp = level.enemyHp;
@@ -294,6 +297,7 @@ class MainScene extends Phaser.Scene {
     if (this.gameOver || this.victory || this.levelTransitioning || !this.enemy) return;
 
     shot.destroy();
+    if (this.time.now < this.enemyInvulnerableUntil) return;
     this.enemyHp--;
     this.score++;
     this.enemy.setFillStyle(0xffffff, 1);
@@ -311,21 +315,78 @@ class MainScene extends Phaser.Scene {
   }
 
   private defeatEnemy() {
-    if (this.levelTransitioning) return;
+    if (this.levelTransitioning || !this.enemy) return;
     this.levelTransitioning = true;
     const defeatedLevel = this.levelIndex;
     const nextLevel = defeatedLevel + 1;
-    this.score += 10 * (defeatedLevel + 1);
-    this.enemyFireEvent?.remove(false);
-    this.clearProjectiles();
-    this.cameras.main.shake(180, 0.006);
-    this.updateHud();
+    const defeatedEnemy = this.enemy;
+    const explosionX = defeatedEnemy.x;
+    const explosionY = defeatedEnemy.y;
 
-    if (nextLevel < LEVELS.length) {
-      this.time.delayedCall(650, () => this.startLevel(nextLevel));
-    } else {
-      this.endVictory();
+    this.score += 10 * (defeatedLevel + 1);
+    this.enemyHp = 0;
+    this.enemyFireEvent?.remove(false);
+    this.enemyOverlap?.destroy();
+    this.enemyOverlap = undefined;
+    (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+    const enemyBody = defeatedEnemy.body as Phaser.Physics.Arcade.Body | null;
+    enemyBody?.setEnable(false);
+    defeatedEnemy.setActive(false);
+    this.clearProjectiles();
+    this.cameras.main.shake(160, 0.004);
+    this.updateHud();
+    this.playEnemyExplosion(explosionX, explosionY, LEVELS[defeatedLevel].enemyColor);
+
+    const message = nextLevel < LEVELS.length ? `LEVEL ${nextLevel + 1} INCOMING` : 'FINAL BOSS DEFEATED';
+    const transitionText = this.add.text(WIDTH / 2, HEIGHT / 2 + 48, message, {
+      fontFamily: 'monospace',
+      fontSize: '24px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 5
+    }).setOrigin(0.5);
+
+    this.tweens.add({ targets: transitionText, alpha: 0.25, yoyo: true, repeat: 1, duration: 350 });
+
+    this.time.delayedCall(1800, () => {
+      transitionText.destroy();
+      defeatedEnemy.destroy();
+      if (nextLevel < LEVELS.length) {
+        this.startLevel(nextLevel);
+      } else {
+        this.endVictory();
+      }
+    });
+  }
+
+  private playEnemyExplosion(x: number, y: number, color: number) {
+    this.enemy?.setVisible(false);
+
+    for (let i = 0; i < 18; i++) {
+      const angle = (Math.PI * 2 * i) / 18;
+      const distance = Phaser.Math.Between(36, 86);
+      const shard = this.add.circle(x, y, Phaser.Math.Between(3, 7), i % 3 === 0 ? 0xffffff : color, 0.95);
+      this.tweens.add({
+        targets: shard,
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance,
+        alpha: 0,
+        scale: 0.3,
+        duration: 650,
+        ease: 'Cubic.easeOut',
+        onComplete: () => shard.destroy()
+      });
     }
+
+    const ring = this.add.circle(x, y, 14, color, 0).setStrokeStyle(3, color, 0.9);
+    this.tweens.add({
+      targets: ring,
+      scale: 5,
+      alpha: 0,
+      duration: 700,
+      ease: 'Cubic.easeOut',
+      onComplete: () => ring.destroy()
+    });
   }
 
   private hitByBullet(bullet: Phaser.GameObjects.Arc) {
