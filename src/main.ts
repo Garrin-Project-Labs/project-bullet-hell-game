@@ -8,6 +8,11 @@ const PLAYER_RADIUS = 10;
 const BULLET_RADIUS = 5;
 const GRAZE_RADIUS = 20;
 const PLAYER_FIRE_MS = 110;
+const POWER_UP_DROP_CHANCE = 0.08;
+const POWER_UP_TTL_MS = 3000;
+const POWER_UP_DURATION_MS = 7000;
+
+type PowerUpKind = 'big' | 'rapid' | 'spread';
 
 type LevelConfig = {
   name: string;
@@ -61,14 +66,17 @@ class MainScene extends Phaser.Scene {
   private fireKey!: Phaser.Input.Keyboard.Key;
   private bullets!: Phaser.Physics.Arcade.Group;
   private playerShots!: Phaser.Physics.Arcade.Group;
+  private powerUps!: Phaser.Physics.Arcade.Group;
   private scoreText!: Phaser.GameObjects.Text;
   private hpText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
   private bossText!: Phaser.GameObjects.Text;
+  private powerText!: Phaser.GameObjects.Text;
   private helpText!: Phaser.GameObjects.Text;
   private overlay?: Phaser.GameObjects.Container;
   private enemyFireEvent?: Phaser.Time.TimerEvent;
   private enemyOverlap?: Phaser.Physics.Arcade.Collider;
+  private powerUpOverlap?: Phaser.Physics.Arcade.Collider;
 
   private hp = 5;
   private score = 0;
@@ -82,6 +90,8 @@ class MainScene extends Phaser.Scene {
   private victory = false;
   private levelTransitioning = false;
   private enemyInvulnerableUntil = 0;
+  private activePowerUp?: PowerUpKind;
+  private powerUpUntil = 0;
 
   constructor() {
     super('main');
@@ -100,6 +110,8 @@ class MainScene extends Phaser.Scene {
     this.victory = false;
     this.levelTransitioning = false;
     this.enemyInvulnerableUntil = 0;
+    this.activePowerUp = undefined;
+    this.powerUpUntil = 0;
 
     this.addBackground();
 
@@ -111,9 +123,11 @@ class MainScene extends Phaser.Scene {
     playerBody.setCollideWorldBounds(true);
 
     this.bullets = this.physics.add.group({ classType: Phaser.GameObjects.Arc, maxSize: 800 });
-    this.playerShots = this.physics.add.group({ classType: Phaser.GameObjects.Rectangle, maxSize: 90 });
+    this.playerShots = this.physics.add.group({ classType: Phaser.GameObjects.Rectangle, maxSize: 120 });
+    this.powerUps = this.physics.add.group({ classType: Phaser.GameObjects.Star, maxSize: 3 });
 
     this.physics.add.overlap(this.player, this.bullets, (_, bullet) => this.hitByBullet(bullet as Phaser.GameObjects.Arc));
+    this.powerUpOverlap = this.physics.add.overlap(this.player, this.powerUps, (_, powerUp) => this.collectPowerUp(powerUp as Phaser.GameObjects.Star));
 
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.wasd = this.input.keyboard!.addKeys('W,A,S,D,R') as Record<string, Phaser.Input.Keyboard.Key>;
@@ -124,6 +138,7 @@ class MainScene extends Phaser.Scene {
     this.hpText = this.add.text(WIDTH - 16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(1, 0);
     this.levelText = this.add.text(16, 40, '', { fontFamily: 'monospace', fontSize: '16px', color: '#c8f7ff' });
     this.bossText = this.add.text(WIDTH - 16, 40, '', { fontFamily: 'monospace', fontSize: '16px', color: '#ffd6e6' }).setOrigin(1, 0);
+    this.powerText = this.add.text(WIDTH / 2, 12, '', { fontFamily: 'monospace', fontSize: '16px', color: '#fff0a6' }).setOrigin(0.5, 0);
     this.helpText = this.add.text(16, HEIGHT - 34, 'Move: WASD/Arrows • Shoot: Space • Restart: R', {
       fontFamily: 'monospace',
       fontSize: '15px',
@@ -147,6 +162,7 @@ class MainScene extends Phaser.Scene {
       this.firePlayerShot(time);
     }
 
+    this.expirePowerUp(time);
     this.cleanupOffscreen();
     this.checkGrazes();
   }
@@ -282,15 +298,32 @@ class MainScene extends Phaser.Scene {
   }
 
   private firePlayerShot(time: number) {
+    const fireDelay = this.activePowerUp === 'rapid' ? PLAYER_FIRE_MS * 0.55 : PLAYER_FIRE_MS;
+    if (time - this.lastPlayerFire < fireDelay) return;
     this.lastPlayerFire = time;
-    const shot = this.playerShots.get(this.player.x, this.player.y - 18, 8, 22, 0x9cff6a) as Phaser.GameObjects.Rectangle | null;
+
+    if (this.activePowerUp === 'spread') {
+      this.spawnPlayerShot(this.player.x - 8, this.player.y - 18, -105, -500);
+      this.spawnPlayerShot(this.player.x, this.player.y - 20, 0, -540);
+      this.spawnPlayerShot(this.player.x + 8, this.player.y - 18, 105, -500);
+      return;
+    }
+
+    const width = this.activePowerUp === 'big' ? 16 : 8;
+    const height = this.activePowerUp === 'big' ? 34 : 22;
+    const speed = this.activePowerUp === 'rapid' ? -650 : -520;
+    this.spawnPlayerShot(this.player.x, this.player.y - 18, 0, speed, width, height);
+  }
+
+  private spawnPlayerShot(x: number, y: number, velocityX: number, velocityY: number, width = 8, height = 22) {
+    const shot = this.playerShots.get(x, y, width, height, 0x9cff6a) as Phaser.GameObjects.Rectangle | null;
     if (!shot) return;
     shot.setActive(true).setVisible(true);
     shot.setFillStyle(0x9cff6a, 1);
     shot.setStrokeStyle(1, 0xffffff, 0.7);
     const body = shot.body as Phaser.Physics.Arcade.Body;
-    body.setSize(8, 22);
-    body.setVelocity(0, -520);
+    body.setSize(width, height);
+    body.setVelocity(velocityX, velocityY);
   }
 
   private hitEnemy(shot: Phaser.GameObjects.Rectangle) {
@@ -300,6 +333,7 @@ class MainScene extends Phaser.Scene {
     if (this.time.now < this.enemyInvulnerableUntil) return;
     this.enemyHp--;
     this.score++;
+    this.maybeSpawnPowerUp(this.enemy.x, this.enemy.y);
     this.enemy.setFillStyle(0xffffff, 1);
     this.tweens.add({
       targets: this.enemy,
@@ -419,6 +453,81 @@ class MainScene extends Phaser.Scene {
     this.tweens.add({ targets: text, y: y - 18, alpha: 0, duration: 450, onComplete: () => text.destroy() });
   }
 
+  private maybeSpawnPowerUp(x: number, y: number) {
+    if (this.levelTransitioning || Phaser.Math.FloatBetween(0, 1) > POWER_UP_DROP_CHANCE) return;
+
+    const kinds: PowerUpKind[] = ['big', 'rapid', 'spread'];
+    const kind = Phaser.Utils.Array.GetRandom(kinds);
+    const colors: Record<PowerUpKind, number> = { big: 0xffd166, rapid: 0x7cf7ff, spread: 0xc77dff };
+    const powerUp = this.powerUps.get(
+      Phaser.Math.Clamp(x + Phaser.Math.Between(-120, 120), 70, WIDTH - 70),
+      Phaser.Math.Clamp(y + Phaser.Math.Between(70, 240), 110, HEIGHT - 120),
+      5,
+      12,
+      24,
+      colors[kind]
+    ) as Phaser.GameObjects.Star | null;
+
+    if (!powerUp) return;
+    powerUp.setActive(true).setVisible(true).setData('kind', kind);
+    powerUp.setFillStyle(colors[kind], 0.95);
+    powerUp.setStrokeStyle(2, 0xffffff, 0.8);
+    powerUp.setScale(0.75);
+    (powerUp.body as Phaser.Physics.Arcade.Body).setCircle(18).setAllowGravity(false).setVelocity(0, 38);
+
+    this.tweens.add({ targets: powerUp, angle: 360, duration: 900, repeat: -1 });
+    this.tweens.add({ targets: powerUp, scale: 1, yoyo: true, repeat: -1, duration: 420 });
+    this.time.delayedCall(POWER_UP_TTL_MS, () => {
+      if (powerUp.active) powerUp.destroy();
+    });
+  }
+
+  private collectPowerUp(powerUp: Phaser.GameObjects.Star) {
+    const kind = powerUp.getData('kind') as PowerUpKind;
+    powerUp.destroy();
+    this.activePowerUp = kind;
+    this.powerUpUntil = this.time.now + POWER_UP_DURATION_MS;
+    this.spawnPowerUpText(kind);
+    this.updateHud();
+  }
+
+  private spawnPowerUpText(kind: PowerUpKind) {
+    const labels: Record<PowerUpKind, string> = { big: 'BIG SHOTS', rapid: 'RAPID FIRE', spread: 'SPREAD SHOT' };
+    const text = this.add.text(this.player.x, this.player.y - 34, labels[kind], {
+      fontFamily: 'monospace',
+      fontSize: '15px',
+      color: '#fff0a6',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+    this.tweens.add({ targets: text, y: text.y - 24, alpha: 0, duration: 700, onComplete: () => text.destroy() });
+  }
+
+  private expirePowerUp(time: number) {
+    if (!this.activePowerUp) return;
+
+    if (time >= this.powerUpUntil) {
+      this.activePowerUp = undefined;
+      this.powerUpUntil = 0;
+      this.updateHud();
+      return;
+    }
+
+    this.updatePowerUpHud();
+  }
+
+  private updatePowerUpHud() {
+    if (!this.activePowerUp) {
+      this.powerText?.setText('');
+      return;
+    }
+
+    const seconds = Math.max(0, Math.ceil((this.powerUpUntil - this.time.now) / 1000));
+    const labels: Record<PowerUpKind, string> = { big: 'Big Shots', rapid: 'Rapid Fire', spread: 'Spread Shot' };
+    this.powerText?.setText(`${labels[this.activePowerUp]} ${seconds}s`);
+  }
+
+
   private cleanupOffscreen() {
     const kill = (obj: Phaser.GameObjects.GameObject) => {
       const item = obj as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject;
@@ -431,6 +540,7 @@ class MainScene extends Phaser.Scene {
   private clearProjectiles() {
     this.bullets?.clear(true, true);
     this.playerShots?.clear(true, true);
+    this.powerUps?.clear(true, true);
   }
 
   private updateHud() {
@@ -439,6 +549,7 @@ class MainScene extends Phaser.Scene {
     this.hpText?.setText(`HP ${'♥'.repeat(Math.max(0, this.hp))}`);
     this.levelText?.setText(`Level ${this.levelIndex + 1}/${LEVELS.length}: ${level.name}`);
     this.bossText?.setText(`Boss HP ${Math.max(0, this.enemyHp)}/${level.enemyHp}`);
+    this.updatePowerUpHud();
   }
 
   private endGame() {
