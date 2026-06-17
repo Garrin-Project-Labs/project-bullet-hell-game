@@ -7,8 +7,51 @@ const PLAYER_SPEED = 270;
 const PLAYER_RADIUS = 10;
 const BULLET_RADIUS = 5;
 const GRAZE_RADIUS = 20;
-const ENEMY_FIRE_MS = 520;
 const PLAYER_FIRE_MS = 110;
+
+type LevelConfig = {
+  name: string;
+  background: string;
+  enemyColor: number;
+  enemyHp: number;
+  fireMs: number;
+  bulletCount: number;
+  bulletSpeed: number;
+  spin: number;
+};
+
+const LEVELS: LevelConfig[] = [
+  {
+    name: 'Nebula Gate',
+    background: '#080914',
+    enemyColor: 0xff4d8d,
+    enemyHp: 12,
+    fireMs: 560,
+    bulletCount: 14,
+    bulletSpeed: 105,
+    spin: 0.18
+  },
+  {
+    name: 'Emerald Drift',
+    background: '#071611',
+    enemyColor: 0x43ff91,
+    enemyHp: 18,
+    fireMs: 470,
+    bulletCount: 18,
+    bulletSpeed: 135,
+    spin: 0.25
+  },
+  {
+    name: 'Crimson Core',
+    background: '#18070c',
+    enemyColor: 0xff5d73,
+    enemyHp: 26,
+    fireMs: 390,
+    bulletCount: 22,
+    bulletSpeed: 165,
+    spin: 0.32
+  }
+];
 
 class MainScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Arc;
@@ -20,16 +63,22 @@ class MainScene extends Phaser.Scene {
   private playerShots!: Phaser.Physics.Arcade.Group;
   private scoreText!: Phaser.GameObjects.Text;
   private hpText!: Phaser.GameObjects.Text;
+  private levelText!: Phaser.GameObjects.Text;
+  private bossText!: Phaser.GameObjects.Text;
   private helpText!: Phaser.GameObjects.Text;
   private overlay?: Phaser.GameObjects.Container;
+  private enemyFireEvent?: Phaser.Time.TimerEvent;
 
   private hp = 5;
   private score = 0;
   private grazes = 0;
   private wave = 0;
+  private levelIndex = 0;
+  private enemyHp = 0;
   private invulnerableUntil = 0;
   private lastPlayerFire = 0;
   private gameOver = false;
+  private victory = false;
 
   constructor() {
     super('main');
@@ -40,9 +89,12 @@ class MainScene extends Phaser.Scene {
     this.score = 0;
     this.grazes = 0;
     this.wave = 0;
+    this.levelIndex = 0;
+    this.enemyHp = 0;
     this.invulnerableUntil = 0;
     this.lastPlayerFire = 0;
     this.gameOver = false;
+    this.victory = false;
 
     this.addBackground();
 
@@ -53,13 +105,13 @@ class MainScene extends Phaser.Scene {
     playerBody.setCircle(PLAYER_RADIUS);
     playerBody.setCollideWorldBounds(true);
 
-    this.enemy = this.add.triangle(WIDTH / 2, 85, 0, 34, 26, 0, 52, 34, 0xff4d8d, 1);
+    this.enemy = this.add.triangle(WIDTH / 2, 85, 0, 34, 26, 0, 52, 34, LEVELS[0].enemyColor, 1);
     this.enemy.setStrokeStyle(2, 0xffffff, 0.7);
     this.physics.add.existing(this.enemy);
     (this.enemy.body as Phaser.Physics.Arcade.Body).setImmovable(true);
 
-    this.bullets = this.physics.add.group({ classType: Phaser.GameObjects.Arc, maxSize: 700 });
-    this.playerShots = this.physics.add.group({ classType: Phaser.GameObjects.Rectangle, maxSize: 70 });
+    this.bullets = this.physics.add.group({ classType: Phaser.GameObjects.Arc, maxSize: 800 });
+    this.playerShots = this.physics.add.group({ classType: Phaser.GameObjects.Rectangle, maxSize: 90 });
 
     this.physics.add.overlap(this.player, this.bullets, (_, bullet) => this.hitByBullet(bullet as Phaser.GameObjects.Arc));
     this.physics.add.overlap(this.enemy, this.playerShots, (_, shot) => this.hitEnemy(shot as Phaser.GameObjects.Rectangle));
@@ -71,14 +123,15 @@ class MainScene extends Phaser.Scene {
 
     this.scoreText = this.add.text(16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' });
     this.hpText = this.add.text(WIDTH - 16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(1, 0);
+    this.levelText = this.add.text(16, 40, '', { fontFamily: 'monospace', fontSize: '16px', color: '#c8f7ff' });
+    this.bossText = this.add.text(WIDTH - 16, 40, '', { fontFamily: 'monospace', fontSize: '16px', color: '#ffd6e6' }).setOrigin(1, 0);
     this.helpText = this.add.text(16, HEIGHT - 34, 'Move: WASD/Arrows • Shoot: Space • Restart: R', {
       fontFamily: 'monospace',
       fontSize: '15px',
       color: '#a9bad1'
     });
-    this.updateHud();
 
-    this.time.addEvent({ delay: ENEMY_FIRE_MS, loop: true, callback: () => this.firePattern() });
+    this.startLevel(0);
   }
 
   update(time: number, delta: number) {
@@ -86,7 +139,7 @@ class MainScene extends Phaser.Scene {
       this.scene.restart();
       return;
     }
-    if (this.gameOver) return;
+    if (this.gameOver || this.victory) return;
 
     this.movePlayer(delta);
     this.moveEnemy(time);
@@ -96,11 +149,11 @@ class MainScene extends Phaser.Scene {
     }
 
     this.cleanupOffscreen();
-    this.checkGrazes(time);
+    this.checkGrazes();
   }
 
   private addBackground() {
-    this.cameras.main.setBackgroundColor('#080914');
+    this.cameras.main.setBackgroundColor(LEVELS[0].background);
     for (let i = 0; i < 95; i++) {
       const x = Phaser.Math.Between(0, WIDTH);
       const y = Phaser.Math.Between(0, HEIGHT);
@@ -109,6 +162,44 @@ class MainScene extends Phaser.Scene {
       this.add.circle(x, y, size, 0xffffff, alpha);
     }
     this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH - 18, HEIGHT - 18).setStrokeStyle(2, 0x28344f, 0.8);
+  }
+
+  private startLevel(index: number) {
+    this.levelIndex = index;
+    this.wave = 0;
+
+    const level = LEVELS[this.levelIndex];
+    this.enemyHp = level.enemyHp;
+    this.enemy.setActive(true).setVisible(true);
+    this.enemy.setFillStyle(level.enemyColor, 1);
+    this.enemy.setPosition(WIDTH / 2, 85);
+    this.cameras.main.setBackgroundColor(level.background);
+    this.clearProjectiles();
+
+    this.enemyFireEvent?.remove(false);
+    this.enemyFireEvent = this.time.addEvent({ delay: level.fireMs, loop: true, callback: () => this.firePattern() });
+
+    this.showLevelBanner(level);
+    this.updateHud();
+  }
+
+  private showLevelBanner(level: LevelConfig) {
+    const banner = this.add.text(WIDTH / 2, HEIGHT / 2 - 110, `LEVEL ${this.levelIndex + 1}: ${level.name}`, {
+      fontFamily: 'monospace',
+      fontSize: '28px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 5
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: banner,
+      y: banner.y - 24,
+      alpha: 0,
+      delay: 700,
+      duration: 650,
+      onComplete: () => banner.destroy()
+    });
   }
 
   private movePlayer(delta: number) {
@@ -127,18 +218,24 @@ class MainScene extends Phaser.Scene {
   }
 
   private moveEnemy(time: number) {
-    this.enemy.x = WIDTH / 2 + Math.sin(time / 850) * 250;
-    this.enemy.y = 82 + Math.sin(time / 500) * 12;
+    const level = LEVELS[this.levelIndex];
+    this.enemy.x = WIDTH / 2 + Math.sin(time / (900 - this.levelIndex * 120)) * (230 + this.levelIndex * 25);
+    this.enemy.y = 82 + Math.sin(time / 500) * (12 + this.levelIndex * 4);
+    this.enemy.rotation += 0.002 + this.levelIndex * 0.001;
+    this.enemy.setFillStyle(level.enemyColor, 1);
     (this.enemy.body as Phaser.Physics.Arcade.Body).updateFromGameObject();
   }
 
   private firePattern() {
-    if (this.gameOver) return;
+    if (this.gameOver || this.victory) return;
     this.wave++;
+
+    const level = LEVELS[this.levelIndex];
     const base = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
-    const count = 16 + Math.min(20, Math.floor(this.score / 8));
-    const speed = 105 + Math.min(105, this.score * 1.5);
-    const spin = this.wave * 0.23;
+    const scoreBoost = Math.min(8, Math.floor(this.score / 18));
+    const count = level.bulletCount + scoreBoost;
+    const speed = level.bulletSpeed + Math.min(60, this.score);
+    const spin = this.wave * level.spin;
 
     for (let i = 0; i < count; i++) {
       const angle = base + spin + (Math.PI * 2 * i) / count;
@@ -147,7 +244,7 @@ class MainScene extends Phaser.Scene {
 
     if (this.wave % 3 === 0) {
       for (let i = -2; i <= 2; i++) {
-        this.spawnEnemyBullet(this.enemy.x, this.enemy.y + 18, base + i * 0.12, speed + 90, 0xff5d73);
+        this.spawnEnemyBullet(this.enemy.x, this.enemy.y + 18, base + i * 0.12, speed + 90, level.enemyColor);
       }
     }
   }
@@ -176,15 +273,35 @@ class MainScene extends Phaser.Scene {
   }
 
   private hitEnemy(shot: Phaser.GameObjects.Rectangle) {
+    if (this.gameOver || this.victory) return;
+
     shot.destroy();
+    this.enemyHp--;
     this.score++;
     this.enemy.setFillStyle(0xffffff, 1);
-    this.time.delayedCall(55, () => this.enemy?.setFillStyle(0xff4d8d, 1));
+    this.cameras.main.flash(45, 255, 255, 255, false);
+    this.time.delayedCall(55, () => this.enemy?.setFillStyle(LEVELS[this.levelIndex].enemyColor, 1));
     this.updateHud();
+
+    if (this.enemyHp <= 0) this.defeatEnemy();
+  }
+
+  private defeatEnemy() {
+    this.score += 10 * (this.levelIndex + 1);
+    this.enemyFireEvent?.remove(false);
+    this.clearProjectiles();
+    this.cameras.main.shake(180, 0.006);
+    this.updateHud();
+
+    if (this.levelIndex < LEVELS.length - 1) {
+      this.time.delayedCall(650, () => this.startLevel(this.levelIndex + 1));
+    } else {
+      this.endVictory();
+    }
   }
 
   private hitByBullet(bullet: Phaser.GameObjects.Arc) {
-    if (this.time.now < this.invulnerableUntil || this.gameOver) return;
+    if (this.time.now < this.invulnerableUntil || this.gameOver || this.victory) return;
     bullet.destroy();
     this.hp--;
     this.invulnerableUntil = this.time.now + 1100;
@@ -193,7 +310,7 @@ class MainScene extends Phaser.Scene {
     if (this.hp <= 0) this.endGame();
   }
 
-  private checkGrazes(time: number) {
+  private checkGrazes() {
     for (const obj of this.bullets.getChildren()) {
       const bullet = obj as Phaser.GameObjects.Arc;
       if (!bullet.active || bullet.getData('grazed')) continue;
@@ -222,13 +339,22 @@ class MainScene extends Phaser.Scene {
     this.playerShots.getChildren().forEach(kill);
   }
 
+  private clearProjectiles() {
+    this.bullets?.clear(true, true);
+    this.playerShots?.clear(true, true);
+  }
+
   private updateHud() {
+    const level = LEVELS[this.levelIndex];
     this.scoreText?.setText(`Score ${this.score}  Grazes ${this.grazes}`);
     this.hpText?.setText(`HP ${'♥'.repeat(Math.max(0, this.hp))}`);
+    this.levelText?.setText(`Level ${this.levelIndex + 1}/${LEVELS.length}: ${level.name}`);
+    this.bossText?.setText(`Boss HP ${Math.max(0, this.enemyHp)}/${level.enemyHp}`);
   }
 
   private endGame() {
     this.gameOver = true;
+    this.enemyFireEvent?.remove(false);
     (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
     this.player.setFillStyle(0xff3355, 1);
 
@@ -236,6 +362,19 @@ class MainScene extends Phaser.Scene {
     const title = this.add.text(0, -58, 'GAME OVER', { fontFamily: 'monospace', fontSize: '36px', color: '#ff5d73' }).setOrigin(0.5);
     const stats = this.add.text(0, -8, `Score: ${this.score}   Grazes: ${this.grazes}`, { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(0.5);
     const restart = this.add.text(0, 44, 'Press R to restart', { fontFamily: 'monospace', fontSize: '17px', color: '#a9bad1' }).setOrigin(0.5);
+    this.overlay = this.add.container(WIDTH / 2, HEIGHT / 2, [panel, title, stats, restart]);
+  }
+
+  private endVictory() {
+    this.victory = true;
+    this.enemyFireEvent?.remove(false);
+    (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+    this.enemy.setVisible(false).setActive(false);
+
+    const panel = this.add.rectangle(0, 0, 480, 210, 0x050714, 0.92).setStrokeStyle(2, 0x9cff6a, 0.9);
+    const title = this.add.text(0, -66, 'VICTORY!', { fontFamily: 'monospace', fontSize: '38px', color: '#9cff6a' }).setOrigin(0.5);
+    const stats = this.add.text(0, -10, `Final Score: ${this.score}   Grazes: ${this.grazes}`, { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(0.5);
+    const restart = this.add.text(0, 50, 'Press R to play again', { fontFamily: 'monospace', fontSize: '17px', color: '#a9bad1' }).setOrigin(0.5);
     this.overlay = this.add.container(WIDTH / 2, HEIGHT / 2, [panel, title, stats, restart]);
   }
 }
