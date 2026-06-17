@@ -20,11 +20,21 @@ const POWER_UP_TTL_MS = 3000;
 const POWER_UP_DURATION_MS = 7000;
 const POWER_UP_MIN_GAP_MS = 4000;
 const ATTACK_PATTERN_MS = 5000;
+const LEADERBOARD_KEY = 'bulletHellLeaderboard';
+const LEADERBOARD_LIMIT = 10;
 
 type PowerUpKind = 'big' | 'rapid' | 'spread';
 type UpgradeKind = 'speed' | 'size' | 'spreadChance';
 type AttackPattern = 'ring' | 'burst' | 'heavy' | 'spiral';
 type EnemyMovePattern = 'sway' | 'figureEight' | 'hoverDash' | 'drift';
+
+type LeaderboardEntry = {
+  name: string;
+  score: number;
+  level: number;
+  grazes: number;
+  date: string;
+};
 
 type LevelConfig = {
   name: string;
@@ -158,6 +168,7 @@ class MainScene extends Phaser.Scene {
   private upgradeText!: Phaser.GameObjects.Text;
   private helpText!: Phaser.GameObjects.Text;
   private overlay?: Phaser.GameObjects.Container;
+  private scoreSubmitted = false;
   private enemyFireEvent?: Phaser.Time.TimerEvent;
   private enemyOverlap?: Phaser.Physics.Arcade.Collider;
   private powerUpOverlap?: Phaser.Physics.Arcade.Collider;
@@ -217,6 +228,7 @@ class MainScene extends Phaser.Scene {
     this.bulletSpeedUpgrades = 0;
     this.bulletSizeUpgrades = 0;
     this.spreadChanceUpgrades = 0;
+    this.scoreSubmitted = false;
 
     this.addBackground();
 
@@ -945,12 +957,7 @@ class MainScene extends Phaser.Scene {
     this.enemyFireEvent?.remove(false);
     (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
     this.player.setTint(0xff3355);
-
-    const panel = this.add.rectangle(0, 0, 430, 190, 0x050714, 0.92).setStrokeStyle(2, 0x7cf7ff, 0.8);
-    const title = this.add.text(0, -58, 'GAME OVER', { fontFamily: 'monospace', fontSize: '36px', color: '#ff5d73' }).setOrigin(0.5);
-    const stats = this.add.text(0, -8, `Score: ${this.score}   Grazes: ${this.grazes}`, { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(0.5);
-    const restart = this.add.text(0, 44, 'Press R to restart', { fontFamily: 'monospace', fontSize: '17px', color: '#a9bad1' }).setOrigin(0.5);
-    this.overlay = this.add.container(WIDTH / 2, HEIGHT / 2, [panel, title, stats, restart]);
+    this.showLeaderboardOverlay('GAME OVER', '#ff5d73');
   }
 
   private endVictory() {
@@ -958,12 +965,112 @@ class MainScene extends Phaser.Scene {
     this.enemyFireEvent?.remove(false);
     (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
     this.enemy?.setVisible(false).setActive(false);
+    this.showLeaderboardOverlay('VICTORY!', '#9cff6a');
+  }
 
-    const panel = this.add.rectangle(0, 0, 480, 210, 0x050714, 0.92).setStrokeStyle(2, 0x9cff6a, 0.9);
-    const title = this.add.text(0, -66, 'VICTORY!', { fontFamily: 'monospace', fontSize: '38px', color: '#9cff6a' }).setOrigin(0.5);
-    const stats = this.add.text(0, -10, `Final Score: ${this.score}   Grazes: ${this.grazes}`, { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(0.5);
-    const restart = this.add.text(0, 50, 'Press R to play again', { fontFamily: 'monospace', fontSize: '17px', color: '#a9bad1' }).setOrigin(0.5);
-    this.overlay = this.add.container(WIDTH / 2, HEIGHT / 2, [panel, title, stats, restart]);
+  private showLeaderboardOverlay(titleText: string, titleColor: string) {
+    const panel = this.add.rectangle(0, 0, 600, 390, 0x050714, 0.94).setStrokeStyle(2, 0x7cf7ff, 0.85);
+    const title = this.add.text(0, -168, titleText, { fontFamily: 'monospace', fontSize: '34px', color: titleColor }).setOrigin(0.5);
+    const stats = this.add.text(0, -124, `Score: ${this.score}   Level: ${this.levelIndex + 1}/${LEVELS.length}   Grazes: ${this.grazes}`, {
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      color: '#e8f8ff'
+    }).setOrigin(0.5);
+    const prompt = this.add.text(0, -92, 'Enter your name for the local leaderboard:', {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#a9bad1'
+    }).setOrigin(0.5);
+    const nameText = this.add.text(0, -64, '', {
+      fontFamily: 'monospace',
+      fontSize: '22px',
+      color: '#fff0a6',
+      backgroundColor: '#11182a',
+      padding: { x: 12, y: 6 }
+    }).setOrigin(0.5);
+    const saveHint = this.add.text(0, -26, 'Type name, press Enter to save • R to restart', {
+      fontFamily: 'monospace',
+      fontSize: '13px',
+      color: '#c8f7ff'
+    }).setOrigin(0.5);
+    const leaderboardText = this.add.text(0, 34, this.formatLeaderboard(), {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#e8f8ff',
+      align: 'left'
+    }).setOrigin(0.5, 0);
+
+    this.overlay = this.add.container(WIDTH / 2, HEIGHT / 2, [panel, title, stats, prompt, nameText, saveHint, leaderboardText]);
+
+    let playerName = '';
+    const refreshName = () => nameText.setText(playerName || '_');
+    refreshName();
+
+    const submitScore = () => {
+      if (this.scoreSubmitted) return;
+      const safeName = (playerName.trim() || 'BANANA').slice(0, 12).toUpperCase();
+      this.saveLeaderboardEntry(safeName);
+      this.scoreSubmitted = true;
+      prompt.setText(`Saved as ${safeName}!`);
+      saveHint.setText('Press R to restart');
+      leaderboardText.setText(this.formatLeaderboard());
+    };
+
+    this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
+      if (event.key === 'Enter') {
+        submitScore();
+        return;
+      }
+      if (event.key === 'Backspace') {
+        playerName = playerName.slice(0, -1);
+        refreshName();
+        return;
+      }
+      if (event.key.length === 1 && /^[a-zA-Z0-9 _-]$/.test(event.key) && playerName.length < 12 && !this.scoreSubmitted) {
+        playerName += event.key;
+        refreshName();
+      }
+    });
+  }
+
+  private getLeaderboard(): LeaderboardEntry[] {
+    try {
+      const raw = window.localStorage.getItem(LEADERBOARD_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((entry) => typeof entry?.score === 'number') : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private saveLeaderboardEntry(name: string) {
+    const entries = this.getLeaderboard();
+    entries.push({
+      name,
+      score: this.score,
+      level: this.levelIndex + 1,
+      grazes: this.grazes,
+      date: new Date().toISOString()
+    });
+    entries.sort((a, b) => b.score - a.score || b.level - a.level || b.grazes - a.grazes);
+    window.localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries.slice(0, LEADERBOARD_LIMIT)));
+  }
+
+  private formatLeaderboard() {
+    const entries = this.getLeaderboard();
+    const lines = ['LOCAL LEADERBOARD'];
+    if (entries.length === 0) {
+      lines.push('No scores yet. Be the first banana.');
+      return lines.join('\n');
+    }
+
+    entries.slice(0, LEADERBOARD_LIMIT).forEach((entry, index) => {
+      const rank = `${index + 1}.`.padEnd(3, ' ');
+      const name = entry.name.padEnd(12, ' ');
+      const score = String(entry.score).padStart(5, ' ');
+      lines.push(`${rank} ${name} ${score}  L${entry.level}  G${entry.grazes}`);
+    });
+    return lines.join('\n');
   }
 }
 
