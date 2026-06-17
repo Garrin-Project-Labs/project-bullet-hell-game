@@ -15,10 +15,10 @@ const BASE_PLAYER_SHOT_SPEED = 440;
 const BULLET_SPEED_UPGRADE = 90;
 const BULLET_SIZE_UPGRADE = 4;
 const SPREAD_CHANCE_UPGRADE = 0.12;
-const POWER_UP_DROP_CHANCE = 0.06;
+const POWER_UP_DROP_CHANCE = 0.03;
 const POWER_UP_TTL_MS = 3000;
 const POWER_UP_DURATION_MS = 7000;
-const POWER_UP_MIN_GAP_MS = 2200;
+const POWER_UP_MIN_GAP_MS = 4000;
 const ATTACK_PATTERN_MS = 5000;
 
 type PowerUpKind = 'big' | 'rapid' | 'spread';
@@ -42,33 +42,103 @@ const LEVELS: LevelConfig[] = [
     name: 'Nebula Gate',
     background: '#080914',
     enemyColor: 0xff4d8d,
-    enemyHp: 12,
-    fireMs: 720,
-    bulletCount: 8,
-    bulletSpeed: 90,
-    spin: 0.14
+    enemyHp: 10,
+    fireMs: 760,
+    bulletCount: 7,
+    bulletSpeed: 85,
+    spin: 0.12
   },
   {
     name: 'Emerald Drift',
     background: '#071611',
     enemyColor: 0x43ff91,
-    enemyHp: 18,
-    fireMs: 655,
+    enemyHp: 12,
+    fireMs: 720,
+    bulletCount: 8,
+    bulletSpeed: 94,
+    spin: 0.13
+  },
+  {
+    name: 'Violet Shoals',
+    background: '#100b20',
+    enemyColor: 0xa477ff,
+    enemyHp: 14,
+    fireMs: 680,
+    bulletCount: 8,
+    bulletSpeed: 103,
+    spin: 0.14
+  },
+  {
+    name: 'Amber Static',
+    background: '#171006',
+    enemyColor: 0xffb84d,
+    enemyHp: 17,
+    fireMs: 640,
     bulletCount: 9,
-    bulletSpeed: 100,
+    bulletSpeed: 113,
+    spin: 0.15
+  },
+  {
+    name: 'Azure Bloom',
+    background: '#061421',
+    enemyColor: 0x4dd7ff,
+    enemyHp: 20,
+    fireMs: 605,
+    bulletCount: 10,
+    bulletSpeed: 124,
     spin: 0.16
   },
   {
-    name: 'Crimson Core',
-    background: '#18070c',
-    enemyColor: 0xff5d73,
-    enemyHp: 26,
-    fireMs: 595,
-    bulletCount: 10,
-    bulletSpeed: 110,
+    name: 'Rose Circuit',
+    background: '#190718',
+    enemyColor: 0xff6bd6,
+    enemyHp: 24,
+    fireMs: 570,
+    bulletCount: 11,
+    bulletSpeed: 137,
+    spin: 0.17
+  },
+  {
+    name: 'Solar Arcade',
+    background: '#1b1305',
+    enemyColor: 0xffe066,
+    enemyHp: 29,
+    fireMs: 535,
+    bulletCount: 12,
+    bulletSpeed: 151,
     spin: 0.18
+  },
+  {
+    name: 'Neon Undertow',
+    background: '#061b1a',
+    enemyColor: 0x35ffd1,
+    enemyHp: 35,
+    fireMs: 500,
+    bulletCount: 13,
+    bulletSpeed: 166,
+    spin: 0.19
+  },
+  {
+    name: 'Prism Break',
+    background: '#13091c',
+    enemyColor: 0xd36bff,
+    enemyHp: 42,
+    fireMs: 465,
+    bulletCount: 15,
+    bulletSpeed: 183,
+    spin: 0.2
+  },
+  {
+    name: 'Banana Singularity',
+    background: '#1d0708',
+    enemyColor: 0xff3355,
+    enemyHp: 52,
+    fireMs: 430,
+    bulletCount: 16,
+    bulletSpeed: 201,
+    spin: 0.22
   }
-];
+]
 
 class MainScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Image;
@@ -243,12 +313,15 @@ class MainScene extends Phaser.Scene {
     this.enemyOverlap?.destroy();
     this.enemy?.destroy();
 
-    if (this.levelIndex === 0) {
+    const shape = this.levelIndex % 4;
+    if (shape === 0) {
       this.enemy = this.add.triangle(WIDTH / 2, 85, 0, 34, 26, 0, 52, 34, level.enemyColor, 1);
-    } else if (this.levelIndex === 1) {
+    } else if (shape === 1) {
       this.enemy = this.add.rectangle(WIDTH / 2, 85, 50, 50, level.enemyColor, 1).setRotation(Math.PI / 4);
-    } else {
+    } else if (shape === 2) {
       this.enemy = this.add.circle(WIDTH / 2, 85, 28, level.enemyColor, 1);
+    } else {
+      this.enemy = this.add.star(WIDTH / 2, 85, 5, 18, 34, level.enemyColor, 1);
     }
 
     this.setEnemyStroke();
@@ -413,8 +486,8 @@ class MainScene extends Phaser.Scene {
   }
 
   private fireBurstPattern(level: LevelConfig, base: number, speed: number) {
-    const fanCount = 4 + this.levelIndex;
-    const spread = 0.55 + this.levelIndex * 0.08;
+    const fanCount = Math.min(8, 4 + Math.floor(this.levelIndex / 2));
+    const spread = 0.55 + Math.min(0.45, this.levelIndex * 0.05);
     for (let i = 0; i < fanCount; i++) {
       const offset = Phaser.Math.Linear(-spread, spread, fanCount === 1 ? 0.5 : i / (fanCount - 1));
       this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base + offset, speed + 75, level.enemyColor);
@@ -429,7 +502,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private fireHeavyPattern(level: LevelConfig, speed: number) {
-    const lanes = this.levelIndex === 0 ? [0] : this.levelIndex === 1 ? [-38, 38] : [-56, 0, 56];
+    const lanes = this.levelIndex < 3 ? [0] : this.levelIndex < 6 ? [-38, 38] : [-56, 0, 56];
     for (const offset of lanes) {
       const wobble = Math.sin((this.wave + offset) * 0.8) * 0.08;
       this.spawnEnemyBullet(this.enemy!.x + offset, this.enemy!.y + 30, Math.PI / 2 + wobble, speed * 0.62, level.enemyColor, BULLET_RADIUS * 2.2);
@@ -442,7 +515,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private fireSpiralPattern(level: LevelConfig, speed: number) {
-    const arms = 2 + this.levelIndex;
+    const arms = Math.min(5, 2 + Math.floor(this.levelIndex / 3));
     const spin = this.wave * (0.42 + this.levelIndex * 0.08);
     for (let i = 0; i < arms; i++) {
       const angle = spin + (Math.PI * 2 * i) / arms;
@@ -725,11 +798,16 @@ class MainScene extends Phaser.Scene {
     if (!powerUp) return;
     this.lastPowerUpSpawn = this.time.now;
     powerUp.setActive(true).setVisible(true).setData('kind', kind);
-    powerUp.setFillStyle(colors[kind], 0.95);
-    powerUp.setStrokeStyle(2, 0xffffff, 0.9);
+    powerUp.setFillStyle(colors[kind], 0.98);
+    powerUp.setStrokeStyle(2, 0xffffff, 0.95);
     powerUp.setScale(1);
     const body = powerUp.body as Phaser.Physics.Arcade.Body;
     body.setCircle(12).setAllowGravity(false).setVelocity(0, 30);
+
+    const glow = this.add.circle(powerUp.x, powerUp.y, 22, colors[kind], 0.24).setBlendMode(Phaser.BlendModes.ADD);
+    const halo = this.add.circle(powerUp.x, powerUp.y, 15, colors[kind], 0).setStrokeStyle(3, colors[kind], 0.7).setBlendMode(Phaser.BlendModes.ADD);
+    powerUp.setData('glow', glow);
+    powerUp.setData('halo', halo);
 
     const glyphs: Record<PowerUpKind, string> = { big: '+', rapid: 'R', spread: 'S' };
     const label = this.add.text(powerUp.x, powerUp.y, glyphs[kind], {
@@ -739,7 +817,9 @@ class MainScene extends Phaser.Scene {
     }).setOrigin(0.5);
     powerUp.setData('label', label);
 
-    this.tweens.add({ targets: powerUp, scale: 1.18, yoyo: true, repeat: -1, duration: 420 });
+    this.tweens.add({ targets: powerUp, scale: 1.16, yoyo: true, repeat: -1, duration: 420 });
+    this.tweens.add({ targets: glow, scale: 1.45, alpha: 0.08, yoyo: true, repeat: -1, duration: 520 });
+    this.tweens.add({ targets: halo, scale: 1.35, alpha: 0.12, yoyo: true, repeat: -1, duration: 520 });
     this.time.delayedCall(POWER_UP_TTL_MS, () => {
       if (powerUp.active) this.destroyPowerUp(powerUp);
     });
@@ -756,7 +836,11 @@ class MainScene extends Phaser.Scene {
 
   private destroyPowerUp(powerUp: Phaser.GameObjects.Arc) {
     const label = powerUp.getData('label') as Phaser.GameObjects.Text | undefined;
+    const glow = powerUp.getData('glow') as Phaser.GameObjects.Arc | undefined;
+    const halo = powerUp.getData('halo') as Phaser.GameObjects.Arc | undefined;
     label?.destroy();
+    glow?.destroy();
+    halo?.destroy();
     powerUp.destroy();
   }
 
@@ -776,7 +860,11 @@ class MainScene extends Phaser.Scene {
     for (const obj of this.powerUps.getChildren()) {
       const powerUp = obj as Phaser.GameObjects.Arc;
       const label = powerUp.getData('label') as Phaser.GameObjects.Text | undefined;
-      if (label) label.setPosition(powerUp.x, powerUp.y);
+      const glow = powerUp.getData('glow') as Phaser.GameObjects.Arc | undefined;
+      const halo = powerUp.getData('halo') as Phaser.GameObjects.Arc | undefined;
+      label?.setPosition(powerUp.x, powerUp.y);
+      glow?.setPosition(powerUp.x, powerUp.y);
+      halo?.setPosition(powerUp.x, powerUp.y);
     }
   }
 
@@ -826,7 +914,13 @@ class MainScene extends Phaser.Scene {
   private clearProjectiles() {
     this.bullets?.clear(true, true);
     this.playerShots?.clear(true, true);
-    this.powerUps?.clear(true, true);
+    this.clearPowerUps();
+  }
+
+  private clearPowerUps() {
+    for (const obj of [...this.powerUps.getChildren()]) {
+      this.destroyPowerUp(obj as Phaser.GameObjects.Arc);
+    }
   }
 
   private updateHud() {

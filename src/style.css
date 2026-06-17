@@ -14,3 +14,9 @@ canvas {
   display: block;
   box-shadow: 0 0 48px rgba(124, 247, 255, 0.18);
 }
+
+/* Canvas-level glow polish for the arcade preview. Individual power-up glows are
+   rendered in Phaser so their hitboxes stay precise inside the game canvas. */
+#game canvas {
+  filter: drop-shadow(0 0 18px rgba(124, 247, 255, 0.12));
+}
