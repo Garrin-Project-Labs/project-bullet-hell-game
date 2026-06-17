@@ -55,7 +55,7 @@ const LEVELS: LevelConfig[] = [
 
 class MainScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Arc;
-  private enemy!: Phaser.GameObjects.Triangle;
+  private enemy?: Phaser.GameObjects.Shape;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
   private fireKey!: Phaser.Input.Keyboard.Key;
@@ -68,6 +68,7 @@ class MainScene extends Phaser.Scene {
   private helpText!: Phaser.GameObjects.Text;
   private overlay?: Phaser.GameObjects.Container;
   private enemyFireEvent?: Phaser.Time.TimerEvent;
+  private enemyOverlap?: Phaser.Physics.Arcade.Collider;
 
   private hp = 5;
   private score = 0;
@@ -79,6 +80,7 @@ class MainScene extends Phaser.Scene {
   private lastPlayerFire = 0;
   private gameOver = false;
   private victory = false;
+  private levelTransitioning = false;
 
   constructor() {
     super('main');
@@ -95,6 +97,7 @@ class MainScene extends Phaser.Scene {
     this.lastPlayerFire = 0;
     this.gameOver = false;
     this.victory = false;
+    this.levelTransitioning = false;
 
     this.addBackground();
 
@@ -105,16 +108,10 @@ class MainScene extends Phaser.Scene {
     playerBody.setCircle(PLAYER_RADIUS);
     playerBody.setCollideWorldBounds(true);
 
-    this.enemy = this.add.triangle(WIDTH / 2, 85, 0, 34, 26, 0, 52, 34, LEVELS[0].enemyColor, 1);
-    this.enemy.setStrokeStyle(2, 0xffffff, 0.7);
-    this.physics.add.existing(this.enemy);
-    (this.enemy.body as Phaser.Physics.Arcade.Body).setImmovable(true);
-
     this.bullets = this.physics.add.group({ classType: Phaser.GameObjects.Arc, maxSize: 800 });
     this.playerShots = this.physics.add.group({ classType: Phaser.GameObjects.Rectangle, maxSize: 90 });
 
     this.physics.add.overlap(this.player, this.bullets, (_, bullet) => this.hitByBullet(bullet as Phaser.GameObjects.Arc));
-    this.physics.add.overlap(this.enemy, this.playerShots, (_, shot) => this.hitEnemy(shot as Phaser.GameObjects.Rectangle));
 
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.wasd = this.input.keyboard!.addKeys('W,A,S,D,R') as Record<string, Phaser.Input.Keyboard.Key>;
@@ -139,7 +136,7 @@ class MainScene extends Phaser.Scene {
       this.scene.restart();
       return;
     }
-    if (this.gameOver || this.victory) return;
+    if (this.gameOver || this.victory || this.levelTransitioning || !this.enemy) return;
 
     this.movePlayer(delta);
     this.moveEnemy(time);
@@ -167,12 +164,11 @@ class MainScene extends Phaser.Scene {
   private startLevel(index: number) {
     this.levelIndex = index;
     this.wave = 0;
+    this.levelTransitioning = false;
 
     const level = LEVELS[this.levelIndex];
     this.enemyHp = level.enemyHp;
-    this.enemy.setActive(true).setVisible(true);
-    this.enemy.setFillStyle(level.enemyColor, 1);
-    this.enemy.setPosition(WIDTH / 2, 85);
+    this.createEnemyForLevel(level);
     this.cameras.main.setBackgroundColor(level.background);
     this.clearProjectiles();
 
@@ -181,6 +177,26 @@ class MainScene extends Phaser.Scene {
 
     this.showLevelBanner(level);
     this.updateHud();
+  }
+
+  private createEnemyForLevel(level: LevelConfig) {
+    this.enemyOverlap?.destroy();
+    this.enemy?.destroy();
+
+    if (this.levelIndex === 0) {
+      this.enemy = this.add.triangle(WIDTH / 2, 85, 0, 34, 26, 0, 52, 34, level.enemyColor, 1);
+    } else if (this.levelIndex === 1) {
+      this.enemy = this.add.rectangle(WIDTH / 2, 85, 50, 50, level.enemyColor, 1).setRotation(Math.PI / 4);
+    } else {
+      this.enemy = this.add.circle(WIDTH / 2, 85, 28, level.enemyColor, 1);
+    }
+
+    this.enemy.setStrokeStyle(2, 0xffffff, 0.7);
+    this.physics.add.existing(this.enemy);
+    const body = this.enemy.body as Phaser.Physics.Arcade.Body;
+    body.setImmovable(true);
+    body.setAllowGravity(false);
+    this.enemyOverlap = this.physics.add.overlap(this.enemy, this.playerShots, (_, shot) => this.hitEnemy(shot as Phaser.GameObjects.Rectangle));
   }
 
   private showLevelBanner(level: LevelConfig) {
@@ -219,6 +235,7 @@ class MainScene extends Phaser.Scene {
 
   private moveEnemy(time: number) {
     const level = LEVELS[this.levelIndex];
+    if (!this.enemy) return;
     this.enemy.x = WIDTH / 2 + Math.sin(time / (900 - this.levelIndex * 120)) * (230 + this.levelIndex * 25);
     this.enemy.y = 82 + Math.sin(time / 500) * (12 + this.levelIndex * 4);
     this.enemy.rotation += 0.002 + this.levelIndex * 0.001;
@@ -231,6 +248,7 @@ class MainScene extends Phaser.Scene {
     this.wave++;
 
     const level = LEVELS[this.levelIndex];
+    if (!this.enemy || this.levelTransitioning) return;
     const base = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
     const scoreBoost = Math.min(8, Math.floor(this.score / 18));
     const count = level.bulletCount + scoreBoost;
@@ -273,7 +291,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private hitEnemy(shot: Phaser.GameObjects.Rectangle) {
-    if (this.gameOver || this.victory) return;
+    if (this.gameOver || this.victory || this.levelTransitioning || !this.enemy) return;
 
     shot.destroy();
     this.enemyHp--;
@@ -293,14 +311,18 @@ class MainScene extends Phaser.Scene {
   }
 
   private defeatEnemy() {
-    this.score += 10 * (this.levelIndex + 1);
+    if (this.levelTransitioning) return;
+    this.levelTransitioning = true;
+    const defeatedLevel = this.levelIndex;
+    const nextLevel = defeatedLevel + 1;
+    this.score += 10 * (defeatedLevel + 1);
     this.enemyFireEvent?.remove(false);
     this.clearProjectiles();
     this.cameras.main.shake(180, 0.006);
     this.updateHud();
 
-    if (this.levelIndex < LEVELS.length - 1) {
-      this.time.delayedCall(650, () => this.startLevel(this.levelIndex + 1));
+    if (nextLevel < LEVELS.length) {
+      this.time.delayedCall(650, () => this.startLevel(nextLevel));
     } else {
       this.endVictory();
     }
@@ -375,7 +397,7 @@ class MainScene extends Phaser.Scene {
     this.victory = true;
     this.enemyFireEvent?.remove(false);
     (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
-    this.enemy.setVisible(false).setActive(false);
+    this.enemy?.setVisible(false).setActive(false);
 
     const panel = this.add.rectangle(0, 0, 480, 210, 0x050714, 0.92).setStrokeStyle(2, 0x9cff6a, 0.9);
     const title = this.add.text(0, -66, 'VICTORY!', { fontFamily: 'monospace', fontSize: '38px', color: '#9cff6a' }).setOrigin(0.5);
