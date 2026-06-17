@@ -19,6 +19,7 @@ const ATTACK_PATTERN_MS = 5000;
 
 type PowerUpKind = 'big' | 'rapid' | 'spread';
 type AttackPattern = 'ring' | 'burst' | 'heavy' | 'spiral';
+type EnemyMovePattern = 'sway' | 'figureEight' | 'hoverDash' | 'drift';
 
 type LevelConfig = {
   name: string;
@@ -101,6 +102,8 @@ class MainScene extends Phaser.Scene {
   private powerUpUntil = 0;
   private levelStartedAt = 0;
   private lastPowerUpSpawn = -POWER_UP_MIN_GAP_MS;
+  private enemyMovePattern: EnemyMovePattern = 'sway';
+  private enemyMoveSeed = 0;
 
   constructor() {
     super('main');
@@ -127,6 +130,8 @@ class MainScene extends Phaser.Scene {
     this.powerUpUntil = 0;
     this.levelStartedAt = 0;
     this.lastPowerUpSpawn = -POWER_UP_MIN_GAP_MS;
+    this.enemyMovePattern = 'sway';
+    this.enemyMoveSeed = 0;
 
     this.addBackground();
 
@@ -202,6 +207,7 @@ class MainScene extends Phaser.Scene {
     this.wave = 0;
     this.levelTransitioning = false;
     this.levelStartedAt = this.time.now;
+    this.pickEnemyMovement();
     this.enemyInvulnerableUntil = this.time.now + 500;
 
     const level = LEVELS[this.levelIndex];
@@ -305,11 +311,42 @@ class MainScene extends Phaser.Scene {
     this.player.setAlpha(flicker ? 0.35 : 1);
   }
 
+  private pickEnemyMovement() {
+    const patterns: EnemyMovePattern[] = ['sway', 'figureEight', 'hoverDash', 'drift'];
+    this.enemyMovePattern = Phaser.Utils.Array.GetRandom(patterns);
+    this.enemyMoveSeed = Phaser.Math.FloatBetween(0, Math.PI * 2);
+  }
+
   private moveEnemy(time: number) {
     const level = LEVELS[this.levelIndex];
     if (!this.enemy) return;
-    this.enemy.x = WIDTH / 2 + Math.sin(time / (900 - this.levelIndex * 120)) * (230 + this.levelIndex * 25);
-    this.enemy.y = 82 + Math.sin(time / 500) * (12 + this.levelIndex * 4);
+
+    const t = (time - this.levelStartedAt) / 1000;
+    const phase = t + this.enemyMoveSeed;
+    let x = WIDTH / 2;
+    let y = 82;
+
+    switch (this.enemyMovePattern) {
+      case 'sway':
+        x += Math.sin(phase * (1.05 + this.levelIndex * 0.12)) * (190 + this.levelIndex * 18);
+        y += Math.sin(phase * 1.7) * (10 + this.levelIndex * 3);
+        break;
+      case 'figureEight':
+        x += Math.sin(phase * 1.15) * (170 + this.levelIndex * 22);
+        y += Math.sin(phase * 2.3) * (22 + this.levelIndex * 4);
+        break;
+      case 'hoverDash':
+        x += Math.tanh(Math.sin(phase * 0.9) * 2.8) * (205 + this.levelIndex * 20);
+        y += Math.cos(phase * 2.1) * (12 + this.levelIndex * 4);
+        break;
+      case 'drift':
+        x += Math.sin(phase * 0.85) * (145 + this.levelIndex * 20) + Math.sin(phase * 2.4) * 42;
+        y += Math.cos(phase * 1.25) * (18 + this.levelIndex * 5);
+        break;
+    }
+
+    this.enemy.x = Phaser.Math.Clamp(x, 70, WIDTH - 70);
+    this.enemy.y = Phaser.Math.Clamp(y, 58, 145);
     this.enemy.rotation += 0.002 + this.levelIndex * 0.001;
     this.setEnemyFill(level.enemyColor);
     (this.enemy.body as Phaser.Physics.Arcade.Body).updateFromGameObject();
