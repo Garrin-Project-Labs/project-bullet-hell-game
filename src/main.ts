@@ -10,7 +10,11 @@ const PLAYER_HIT_ELLIPSE_Y = 21;
 const PLAYER_HIT_ELLIPSE_ROTATION = -0.78;
 const BULLET_RADIUS = 5;
 const GRAZE_RADIUS = 20;
-const PLAYER_FIRE_MS = 110;
+const PLAYER_FIRE_MS = 170;
+const BASE_PLAYER_SHOT_SPEED = 440;
+const BULLET_SPEED_UPGRADE = 90;
+const BULLET_SIZE_UPGRADE = 4;
+const SPREAD_CHANCE_UPGRADE = 0.12;
 const POWER_UP_DROP_CHANCE = 0.06;
 const POWER_UP_TTL_MS = 3000;
 const POWER_UP_DURATION_MS = 7000;
@@ -18,6 +22,7 @@ const POWER_UP_MIN_GAP_MS = 2200;
 const ATTACK_PATTERN_MS = 5000;
 
 type PowerUpKind = 'big' | 'rapid' | 'spread';
+type UpgradeKind = 'speed' | 'size' | 'spreadChance';
 type AttackPattern = 'ring' | 'burst' | 'heavy' | 'spiral';
 type EnemyMovePattern = 'sway' | 'figureEight' | 'hoverDash' | 'drift';
 
@@ -80,6 +85,7 @@ class MainScene extends Phaser.Scene {
   private bossText!: Phaser.GameObjects.Text;
   private patternText!: Phaser.GameObjects.Text;
   private powerText!: Phaser.GameObjects.Text;
+  private upgradeText!: Phaser.GameObjects.Text;
   private helpText!: Phaser.GameObjects.Text;
   private overlay?: Phaser.GameObjects.Container;
   private enemyFireEvent?: Phaser.Time.TimerEvent;
@@ -104,6 +110,9 @@ class MainScene extends Phaser.Scene {
   private lastPowerUpSpawn = -POWER_UP_MIN_GAP_MS;
   private enemyMovePattern: EnemyMovePattern = 'sway';
   private enemyMoveSeed = 0;
+  private bulletSpeedUpgrades = 0;
+  private bulletSizeUpgrades = 0;
+  private spreadChanceUpgrades = 0;
 
   constructor() {
     super('main');
@@ -132,6 +141,9 @@ class MainScene extends Phaser.Scene {
     this.lastPowerUpSpawn = -POWER_UP_MIN_GAP_MS;
     this.enemyMovePattern = 'sway';
     this.enemyMoveSeed = 0;
+    this.bulletSpeedUpgrades = 0;
+    this.bulletSizeUpgrades = 0;
+    this.spreadChanceUpgrades = 0;
 
     this.addBackground();
 
@@ -160,6 +172,7 @@ class MainScene extends Phaser.Scene {
     this.bossText = this.add.text(WIDTH - 16, 40, '', { fontFamily: 'monospace', fontSize: '16px', color: '#ffd6e6' }).setOrigin(1, 0);
     this.patternText = this.add.text(WIDTH / 2, 40, '', { fontFamily: 'monospace', fontSize: '14px', color: '#d7ccff' }).setOrigin(0.5, 0);
     this.powerText = this.add.text(WIDTH / 2, 12, '', { fontFamily: 'monospace', fontSize: '16px', color: '#fff0a6' }).setOrigin(0.5, 0);
+    this.upgradeText = this.add.text(WIDTH / 2, HEIGHT - 58, '', { fontFamily: 'monospace', fontSize: '13px', color: '#c8f7ff' }).setOrigin(0.5, 0);
     this.helpText = this.add.text(16, HEIGHT - 34, 'Move: WASD/Arrows • Shoot: Space • Restart: R', {
       fontFamily: 'monospace',
       fontSize: '15px',
@@ -448,20 +461,23 @@ class MainScene extends Phaser.Scene {
   }
 
   private firePlayerShot(time: number) {
-    const fireDelay = this.activePowerUp === 'rapid' ? PLAYER_FIRE_MS * 0.55 : PLAYER_FIRE_MS;
+    const fireDelay = this.activePowerUp === 'rapid' ? PLAYER_FIRE_MS * 0.65 : PLAYER_FIRE_MS;
     if (time - this.lastPlayerFire < fireDelay) return;
     this.lastPlayerFire = time;
 
-    if (this.activePowerUp === 'spread') {
-      this.spawnPlayerShot(this.player.x - 8, this.player.y - 18, -105, -500);
-      this.spawnPlayerShot(this.player.x, this.player.y - 20, 0, -540);
-      this.spawnPlayerShot(this.player.x + 8, this.player.y - 18, 105, -500);
+    const width = 8 + this.bulletSizeUpgrades * BULLET_SIZE_UPGRADE + (this.activePowerUp === 'big' ? 8 : 0);
+    const height = 22 + this.bulletSizeUpgrades * (BULLET_SIZE_UPGRADE + 2) + (this.activePowerUp === 'big' ? 12 : 0);
+    const speed = -(BASE_PLAYER_SHOT_SPEED + this.bulletSpeedUpgrades * BULLET_SPEED_UPGRADE + (this.activePowerUp === 'rapid' ? 140 : 0));
+    const spreadChance = Math.min(0.45, this.spreadChanceUpgrades * SPREAD_CHANCE_UPGRADE);
+    const shouldSpread = this.activePowerUp === 'spread' || Phaser.Math.FloatBetween(0, 1) < spreadChance;
+
+    if (shouldSpread) {
+      this.spawnPlayerShot(this.player.x - 8, this.player.y - 18, -95, speed * 0.93, width, height);
+      this.spawnPlayerShot(this.player.x, this.player.y - 20, 0, speed, width, height);
+      this.spawnPlayerShot(this.player.x + 8, this.player.y - 18, 95, speed * 0.93, width, height);
       return;
     }
 
-    const width = this.activePowerUp === 'big' ? 16 : 8;
-    const height = this.activePowerUp === 'big' ? 34 : 22;
-    const speed = this.activePowerUp === 'rapid' ? -650 : -520;
     this.spawnPlayerShot(this.player.x, this.player.y - 18, 0, speed, width, height);
   }
 
@@ -532,15 +548,73 @@ class MainScene extends Phaser.Scene {
 
     this.tweens.add({ targets: transitionText, alpha: 0.25, yoyo: true, repeat: 1, duration: 350 });
 
-    this.time.delayedCall(1800, () => {
+    this.time.delayedCall(1100, () => {
       transitionText.destroy();
       defeatedEnemy.destroy();
       if (nextLevel < LEVELS.length) {
-        this.startLevel(nextLevel);
+        this.showUpgradeChoices(nextLevel);
       } else {
         this.endVictory();
       }
     });
+  }
+
+  private showUpgradeChoices(nextLevel: number) {
+    const panel = this.add.rectangle(0, 0, 650, 250, 0x050714, 0.94).setStrokeStyle(2, 0x7cf7ff, 0.85);
+    const title = this.add.text(0, -92, 'CHOOSE A POWER-UP', {
+      fontFamily: 'monospace',
+      fontSize: '28px',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    const hint = this.add.text(0, -60, 'Click a card or press 1 / 2 / 3', {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#a9bad1'
+    }).setOrigin(0.5);
+
+    const overlay = this.add.container(WIDTH / 2, HEIGHT / 2, [panel, title, hint]);
+    const choices: Array<{ kind: UpgradeKind; title: string; description: string; color: number }> = [
+      { kind: 'speed', title: 'Faster Bullets', description: '+ projectile speed', color: 0x7cf7ff },
+      { kind: 'size', title: 'Larger Bullets', description: '+ shot size', color: 0xffd166 },
+      { kind: 'spreadChance', title: 'Spread Chance', description: '+12% chance to split', color: 0xc77dff }
+    ];
+
+    let chosen = false;
+    const choose = (kind: UpgradeKind) => {
+      if (chosen) return;
+      chosen = true;
+      this.applyUpgrade(kind);
+      this.input.keyboard?.off('keydown-ONE');
+      this.input.keyboard?.off('keydown-TWO');
+      this.input.keyboard?.off('keydown-THREE');
+      overlay.destroy();
+      this.time.delayedCall(250, () => this.startLevel(nextLevel));
+    };
+
+    choices.forEach((choice, index) => {
+      const x = -210 + index * 210;
+      const card = this.add.rectangle(x, 36, 180, 120, 0x11182a, 0.98)
+        .setStrokeStyle(2, choice.color, 0.9)
+        .setInteractive({ useHandCursor: true });
+      const number = this.add.text(x - 76, -12, `${index + 1}`, { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
+      const cardTitle = this.add.text(x, 20, choice.title, { fontFamily: 'monospace', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5);
+      const description = this.add.text(x, 48, choice.description, { fontFamily: 'monospace', fontSize: '13px', color: '#a9bad1' }).setOrigin(0.5);
+      card.on('pointerdown', () => choose(choice.kind));
+      card.on('pointerover', () => card.setFillStyle(0x1c2742, 1));
+      card.on('pointerout', () => card.setFillStyle(0x11182a, 0.98));
+      overlay.add([card, number, cardTitle, description]);
+    });
+
+    this.input.keyboard?.once('keydown-ONE', () => choose('speed'));
+    this.input.keyboard?.once('keydown-TWO', () => choose('size'));
+    this.input.keyboard?.once('keydown-THREE', () => choose('spreadChance'));
+  }
+
+  private applyUpgrade(kind: UpgradeKind) {
+    if (kind === 'speed') this.bulletSpeedUpgrades++;
+    if (kind === 'size') this.bulletSizeUpgrades++;
+    if (kind === 'spreadChance') this.spreadChanceUpgrades++;
+    this.updateHud();
   }
 
   private playEnemyExplosion(x: number, y: number, color: number) {
@@ -756,6 +830,8 @@ class MainScene extends Phaser.Scene {
     this.bossText?.setText(`Boss HP ${Math.max(0, this.enemyHp)}/${level.enemyHp}`);
     this.updateAttackPatternHud();
     this.updatePowerUpHud();
+    const spreadPct = Math.round(Math.min(0.45, this.spreadChanceUpgrades * SPREAD_CHANCE_UPGRADE) * 100);
+    this.upgradeText?.setText(`Upgrades: Speed +${this.bulletSpeedUpgrades}  Size +${this.bulletSizeUpgrades}  Spread ${spreadPct}%`);
   }
 
   private endGame() {
