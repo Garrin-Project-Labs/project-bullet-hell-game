@@ -103,6 +103,7 @@ class MainScene extends Phaser.Scene {
   private gameOver = false;
   private victory = false;
   private levelTransitioning = false;
+  private waitingForUpgradeChoice = false;
   private enemyInvulnerableUntil = 0;
   private activePowerUp?: PowerUpKind;
   private powerUpUntil = 0;
@@ -134,6 +135,7 @@ class MainScene extends Phaser.Scene {
     this.gameOver = false;
     this.victory = false;
     this.levelTransitioning = false;
+    this.waitingForUpgradeChoice = false;
     this.enemyInvulnerableUntil = 0;
     this.activePowerUp = undefined;
     this.powerUpUntil = 0;
@@ -187,7 +189,7 @@ class MainScene extends Phaser.Scene {
       this.scene.restart();
       return;
     }
-    if (this.gameOver || this.victory || this.levelTransitioning || !this.enemy) return;
+    if (this.gameOver || this.victory || this.levelTransitioning || this.waitingForUpgradeChoice || !this.enemy) return;
 
     this.movePlayer(delta);
     this.moveEnemy(time);
@@ -219,6 +221,7 @@ class MainScene extends Phaser.Scene {
     this.levelIndex = index;
     this.wave = 0;
     this.levelTransitioning = false;
+    this.waitingForUpgradeChoice = false;
     this.levelStartedAt = this.time.now;
     this.pickEnemyMovement();
     this.enemyInvulnerableUntil = this.time.now + 500;
@@ -493,7 +496,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private hitEnemy(shot: Phaser.GameObjects.Rectangle) {
-    if (this.gameOver || this.victory || this.levelTransitioning || !this.enemy) return;
+    if (this.gameOver || this.victory || this.levelTransitioning || this.waitingForUpgradeChoice || !this.enemy) return;
 
     shot.destroy();
     if (this.time.now < this.enemyInvulnerableUntil) return;
@@ -537,7 +540,7 @@ class MainScene extends Phaser.Scene {
     this.updateHud();
     this.playEnemyExplosion(explosionX, explosionY, LEVELS[defeatedLevel].enemyColor);
 
-    const message = nextLevel < LEVELS.length ? `LEVEL ${nextLevel + 1} INCOMING` : 'FINAL BOSS DEFEATED';
+    const message = nextLevel < LEVELS.length ? 'CHOOSE AN UPGRADE TO CONTINUE' : 'FINAL BOSS DEFEATED';
     const transitionText = this.add.text(WIDTH / 2, HEIGHT / 2 + 48, message, {
       fontFamily: 'monospace',
       fontSize: '24px',
@@ -546,9 +549,9 @@ class MainScene extends Phaser.Scene {
       strokeThickness: 5
     }).setOrigin(0.5);
 
-    this.tweens.add({ targets: transitionText, alpha: 0.25, yoyo: true, repeat: 1, duration: 350 });
+    this.tweens.add({ targets: transitionText, alpha: 0.25, yoyo: true, repeat: -1, duration: 350 });
 
-    this.time.delayedCall(1100, () => {
+    this.time.delayedCall(750, () => {
       transitionText.destroy();
       defeatedEnemy.destroy();
       if (nextLevel < LEVELS.length) {
@@ -560,6 +563,9 @@ class MainScene extends Phaser.Scene {
   }
 
   private showUpgradeChoices(nextLevel: number) {
+    this.waitingForUpgradeChoice = true;
+    this.levelTransitioning = true;
+    this.clearProjectiles();
     const panel = this.add.rectangle(0, 0, 650, 250, 0x050714, 0.94).setStrokeStyle(2, 0x7cf7ff, 0.85);
     const title = this.add.text(0, -92, 'CHOOSE A POWER-UP', {
       fontFamily: 'monospace',
@@ -587,8 +593,9 @@ class MainScene extends Phaser.Scene {
       this.input.keyboard?.off('keydown-ONE');
       this.input.keyboard?.off('keydown-TWO');
       this.input.keyboard?.off('keydown-THREE');
+      this.waitingForUpgradeChoice = false;
       overlay.destroy();
-      this.time.delayedCall(250, () => this.startLevel(nextLevel));
+      this.startLevel(nextLevel);
     };
 
     choices.forEach((choice, index) => {
@@ -798,7 +805,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private updateAttackPatternHud() {
-    if (this.gameOver || this.victory || this.levelTransitioning) {
+    if (this.gameOver || this.victory || this.levelTransitioning || this.waitingForUpgradeChoice) {
       this.patternText?.setText('');
       return;
     }
