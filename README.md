@@ -78,6 +78,24 @@ npm run dev
 
 Open the Vite local URL, usually <http://localhost:5173/>.
 
+Build for production:
+
+```bash
+npm run build
+npm run preview
+```
+
+## GitHub Pages deployment
+
+This repo is configured for GitHub Pages as a Vite project site:
+
+- `vite.config.ts` sets `base: '/project-bullet-hell-game/'` so built JS/CSS asset URLs resolve under the repository path.
+- `.github/workflows/deploy-pages.yml` builds with `npm ci && npm run build`, uploads `dist/`, and deploys it through GitHub Pages Actions.
+
+In GitHub repo settings, set **Pages → Build and deployment → Source** to **GitHub Actions**. The live URL should be:
+
+<https://garrin-project-labs.github.io/project-bullet-hell-game/>
+
 Controls:
 
 - Move: WASD or arrow keys
