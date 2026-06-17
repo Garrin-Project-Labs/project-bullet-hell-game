@@ -5,6 +5,9 @@ const WIDTH = 800;
 const HEIGHT = 600;
 const PLAYER_SPEED = 270;
 const PLAYER_RADIUS = 10;
+const PLAYER_HIT_ELLIPSE_X = 15;
+const PLAYER_HIT_ELLIPSE_Y = 21;
+const PLAYER_HIT_ELLIPSE_ROTATION = -0.78;
 const BULLET_RADIUS = 5;
 const GRAZE_RADIUS = 20;
 const PLAYER_FIRE_MS = 110;
@@ -127,14 +130,15 @@ class MainScene extends Phaser.Scene {
     this.player = this.add.image(WIDTH / 2, HEIGHT - 80, 'banana-boss').setScale(0.55);
     this.physics.add.existing(this.player);
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
-    playerBody.setCircle(PLAYER_RADIUS, 40 - PLAYER_RADIUS, 40 - PLAYER_RADIUS);
+    playerBody.setSize(PLAYER_HIT_ELLIPSE_X * 2, PLAYER_HIT_ELLIPSE_Y * 2);
+    playerBody.setOffset(40 - PLAYER_HIT_ELLIPSE_X, 40 - PLAYER_HIT_ELLIPSE_Y);
     playerBody.setCollideWorldBounds(true);
 
     this.bullets = this.physics.add.group({ classType: Phaser.GameObjects.Arc, maxSize: 800 });
     this.playerShots = this.physics.add.group({ classType: Phaser.GameObjects.Rectangle, maxSize: 120 });
     this.powerUps = this.physics.add.group({ classType: Phaser.GameObjects.Star, maxSize: 3 });
 
-    this.physics.add.overlap(this.player, this.bullets, (_, bullet) => this.hitByBullet(bullet as Phaser.GameObjects.Arc));
+    this.physics.add.overlap(this.player, this.bullets, (_, bullet) => this.checkPlayerBulletHit(bullet as Phaser.GameObjects.Arc));
     this.powerUpOverlap = this.physics.add.overlap(this.player, this.powerUps, (_, powerUp) => this.collectPowerUp(powerUp as Phaser.GameObjects.Star));
 
     this.cursors = this.input.keyboard!.createCursorKeys();
@@ -528,8 +532,28 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  private hitByBullet(bullet: Phaser.GameObjects.Arc) {
+  private checkPlayerBulletHit(bullet: Phaser.GameObjects.Arc) {
     if (this.time.now < this.invulnerableUntil || this.gameOver || this.victory) return;
+    if (!this.isBulletTouchingBanana(bullet)) return;
+    this.hitByBullet(bullet);
+  }
+
+  private isBulletTouchingBanana(bullet: Phaser.GameObjects.Arc) {
+    const dx = bullet.x - this.player.x;
+    const dy = bullet.y - this.player.y;
+    const cos = Math.cos(PLAYER_HIT_ELLIPSE_ROTATION);
+    const sin = Math.sin(PLAYER_HIT_ELLIPSE_ROTATION);
+    const localX = dx * cos - dy * sin;
+    const localY = dx * sin + dy * cos;
+    const radius = BULLET_RADIUS;
+    const normalized =
+      (localX * localX) / Math.pow(PLAYER_HIT_ELLIPSE_X + radius, 2) +
+      (localY * localY) / Math.pow(PLAYER_HIT_ELLIPSE_Y + radius, 2);
+
+    return normalized <= 1;
+  }
+
+  private hitByBullet(bullet: Phaser.GameObjects.Arc) {
     bullet.destroy();
     this.hp--;
     this.invulnerableUntil = this.time.now + 1100;
