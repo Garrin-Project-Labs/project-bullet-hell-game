@@ -169,6 +169,7 @@ class MainScene extends Phaser.Scene {
   private helpText!: Phaser.GameObjects.Text;
   private overlay?: Phaser.GameObjects.Container;
   private scoreSubmitted = false;
+  private leaderboardNameEntryActive = false;
   private enemyFireEvent?: Phaser.Time.TimerEvent;
   private enemyOverlap?: Phaser.Physics.Arcade.Collider;
   private powerUpOverlap?: Phaser.Physics.Arcade.Collider;
@@ -229,6 +230,7 @@ class MainScene extends Phaser.Scene {
     this.bulletSizeUpgrades = 0;
     this.spreadChanceUpgrades = 0;
     this.scoreSubmitted = false;
+    this.leaderboardNameEntryActive = false;
 
     this.addBackground();
 
@@ -268,7 +270,7 @@ class MainScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
-    if (Phaser.Input.Keyboard.JustDown(this.wasd.R)) {
+    if (!this.leaderboardNameEntryActive && Phaser.Input.Keyboard.JustDown(this.wasd.R)) {
       this.scene.restart();
       return;
     }
@@ -1001,6 +1003,7 @@ class MainScene extends Phaser.Scene {
     }).setOrigin(0.5, 0);
 
     this.overlay = this.add.container(WIDTH / 2, HEIGHT / 2, [panel, title, stats, prompt, nameText, saveHint, leaderboardText]);
+    this.leaderboardNameEntryActive = true;
 
     let playerName = '';
     const refreshName = () => nameText.setText(playerName || '_');
@@ -1008,6 +1011,7 @@ class MainScene extends Phaser.Scene {
 
     const submitScore = () => {
       if (this.scoreSubmitted) return;
+      this.leaderboardNameEntryActive = false;
       const safeName = (playerName.trim() || 'BANANA').slice(0, 12).toUpperCase();
       this.saveLeaderboardEntry(safeName);
       this.scoreSubmitted = true;
