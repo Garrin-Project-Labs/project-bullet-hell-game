@@ -22,6 +22,9 @@ const POWER_UP_MIN_GAP_MS = 4000;
 const ATTACK_PATTERN_MS = 5000;
 const LEADERBOARD_KEY = 'bulletHellLeaderboard';
 const LEADERBOARD_LIMIT = 10;
+// Optional shared leaderboard endpoint. Leave blank for local-only GitHub Pages.
+// A free Cloudflare Worker implementation is included in workers/leaderboard.js.
+const SHARED_LEADERBOARD_URL = import.meta.env.VITE_LEADERBOARD_URL || '';
 
 type PowerUpKind = 'big' | 'rapid' | 'spread';
 type UpgradeKind = 'speed' | 'size' | 'spreadChance';
@@ -169,6 +172,8 @@ class MainScene extends Phaser.Scene {
   private helpText!: Phaser.GameObjects.Text;
   private overlay?: Phaser.GameObjects.Container;
   private scoreSubmitted = false;
+  private sharedLeaderboard: LeaderboardEntry[] = [];
+  private leaderboardStatus = 'Local scores only';
   private leaderboardNameEntryActive = false;
   private enemyFireEvent?: Phaser.Time.TimerEvent;
   private enemyOverlap?: Phaser.Physics.Arcade.Collider;
@@ -230,6 +235,8 @@ class MainScene extends Phaser.Scene {
     this.bulletSizeUpgrades = 0;
     this.spreadChanceUpgrades = 0;
     this.scoreSubmitted = false;
+    this.sharedLeaderboard = [];
+    this.leaderboardStatus = SHARED_LEADERBOARD_URL ? 'Loading shared leaderboard...' : 'Local scores only';
     this.leaderboardNameEntryActive = false;
 
     this.addBackground();
@@ -266,6 +273,7 @@ class MainScene extends Phaser.Scene {
       color: '#a9bad1'
     });
 
+    void this.loadSharedLeaderboard();
     this.startLevel(0);
   }
 
@@ -995,6 +1003,11 @@ class MainScene extends Phaser.Scene {
       fontSize: '13px',
       color: '#c8f7ff'
     }).setOrigin(0.5);
+    const statusText = this.add.text(0, 8, this.leaderboardStatus, {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#a9bad1'
+    }).setOrigin(0.5);
     const leaderboardText = this.add.text(0, 34, this.formatLeaderboard(), {
       fontFamily: 'monospace',
       fontSize: '14px',
@@ -1002,7 +1015,7 @@ class MainScene extends Phaser.Scene {
       align: 'left'
     }).setOrigin(0.5, 0);
 
-    this.overlay = this.add.container(WIDTH / 2, HEIGHT / 2, [panel, title, stats, prompt, nameText, saveHint, leaderboardText]);
+    this.overlay = this.add.container(WIDTH / 2, HEIGHT / 2, [panel, title, stats, prompt, nameText, saveHint, statusText, leaderboardText]);
     this.leaderboardNameEntryActive = true;
 
     let playerName = '';
@@ -1018,6 +1031,7 @@ class MainScene extends Phaser.Scene {
       prompt.setText(`Saved as ${safeName}!`);
       saveHint.setText('Press R to restart');
       leaderboardText.setText(this.formatLeaderboard());
+      void this.submitSharedScore(safeName, statusText, leaderboardText);
     };
 
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
@@ -1037,7 +1051,7 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  private getLeaderboard(): LeaderboardEntry[] {
+  private getLocalLeaderboard(): LeaderboardEntry[] {
     try {
       const raw = window.localStorage.getItem(LEADERBOARD_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
@@ -1047,8 +1061,19 @@ class MainScene extends Phaser.Scene {
     }
   }
 
+  private getLeaderboard(): LeaderboardEntry[] {
+    const dedupe = new Map<string, LeaderboardEntry>();
+    for (const entry of [...this.sharedLeaderboard, ...this.getLocalLeaderboard()]) {
+      const key = `${entry.name}|${entry.score}|${entry.level}|${entry.grazes}|${entry.date}`;
+      dedupe.set(key, entry);
+    }
+    return [...dedupe.values()]
+      .sort((a, b) => b.score - a.score || b.level - a.level || b.grazes - a.grazes)
+      .slice(0, LEADERBOARD_LIMIT);
+  }
+
   private saveLeaderboardEntry(name: string) {
-    const entries = this.getLeaderboard();
+    const entries = this.getLocalLeaderboard();
     entries.push({
       name,
       score: this.score,
@@ -1060,9 +1085,44 @@ class MainScene extends Phaser.Scene {
     window.localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries.slice(0, LEADERBOARD_LIMIT)));
   }
 
+  private async loadSharedLeaderboard() {
+    if (!SHARED_LEADERBOARD_URL) return;
+    try {
+      const response = await fetch(SHARED_LEADERBOARD_URL, { method: 'GET' });
+      if (!response.ok) throw new Error(`leaderboard ${response.status}`);
+      const data = await response.json();
+      const entries = Array.isArray(data?.scores) ? data.scores : [];
+      this.sharedLeaderboard = entries.filter((entry: LeaderboardEntry) => typeof entry?.score === 'number').slice(0, LEADERBOARD_LIMIT);
+      this.leaderboardStatus = 'Shared leaderboard online';
+    } catch {
+      this.leaderboardStatus = 'Shared leaderboard offline; using local scores';
+    }
+  }
+
+  private async submitSharedScore(name: string, statusText: Phaser.GameObjects.Text, leaderboardText: Phaser.GameObjects.Text) {
+    if (!SHARED_LEADERBOARD_URL) return;
+    statusText.setText('Submitting shared score...');
+    try {
+      const response = await fetch(SHARED_LEADERBOARD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, score: this.score, level: this.levelIndex + 1, grazes: this.grazes })
+      });
+      if (!response.ok) throw new Error(`leaderboard ${response.status}`);
+      const data = await response.json();
+      const entries = Array.isArray(data?.scores) ? data.scores : [];
+      this.sharedLeaderboard = entries.filter((entry: LeaderboardEntry) => typeof entry?.score === 'number').slice(0, LEADERBOARD_LIMIT);
+      this.leaderboardStatus = 'Shared score saved';
+    } catch {
+      this.leaderboardStatus = 'Shared save failed; score saved locally';
+    }
+    statusText.setText(this.leaderboardStatus);
+    leaderboardText.setText(this.formatLeaderboard());
+  }
+
   private formatLeaderboard() {
     const entries = this.getLeaderboard();
-    const lines = ['LOCAL LEADERBOARD'];
+    const lines = [SHARED_LEADERBOARD_URL ? 'SHARED LEADERBOARD' : 'LOCAL LEADERBOARD'];
     if (entries.length === 0) {
       lines.push('No scores yet. Be the first banana.');
       return lines.join('\n');
