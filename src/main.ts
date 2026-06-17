@@ -9,7 +9,8 @@ const PLAYER_RADIUS = 10;
 const PLAYER_HIT_ELLIPSE_X = 15;
 const PLAYER_HIT_ELLIPSE_Y = 21;
 const PLAYER_HIT_ELLIPSE_ROTATION = -0.78;
-const BULLET_RADIUS = 5;
+const BULLET_RADIUS = 6;
+const MIN_ENEMY_BULLET_RADIUS = 6;
 const GRAZE_RADIUS = 20;
 const PLAYER_FIRE_MS = 170;
 const BASE_PLAYER_SHOT_SPEED = 440;
@@ -512,7 +513,7 @@ class MainScene extends Phaser.Scene {
 
     for (let i = 0; i < count; i++) {
       const angle = base + spin + (Math.PI * 2 * i) / count;
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed, 0xffd166);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed, 0xffd166, 7);
     }
   }
 
@@ -521,13 +522,13 @@ class MainScene extends Phaser.Scene {
     const spread = 0.55 + Math.min(0.45, this.levelIndex * 0.05);
     for (let i = 0; i < fanCount; i++) {
       const offset = Phaser.Math.Linear(-spread, spread, fanCount === 1 ? 0.5 : i / (fanCount - 1));
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base + offset, speed + 75, level.enemyColor);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base + offset, speed + 75, 0xff6b9d, 7);
     }
 
     if (this.wave % 2 === 0) {
       const side = this.wave % 4 === 0 ? -1 : 1;
       for (let i = 0; i < 4; i++) {
-        this.spawnEnemyBullet(this.enemy!.x + side * 26, this.enemy!.y + 16, base + side * (0.35 + i * 0.12), speed + 35, 0xffd166);
+        this.spawnEnemyBullet(this.enemy!.x + side * 26, this.enemy!.y + 16, base + side * (0.35 + i * 0.12), speed + 35, 0xfff06a, 7);
       }
     }
   }
@@ -536,12 +537,12 @@ class MainScene extends Phaser.Scene {
     const lanes = this.levelIndex < 3 ? [0] : this.levelIndex < 6 ? [-38, 38] : [-56, 0, 56];
     for (const offset of lanes) {
       const wobble = Math.sin((this.wave + offset) * 0.8) * 0.08;
-      this.spawnEnemyBullet(this.enemy!.x + offset, this.enemy!.y + 30, Math.PI / 2 + wobble, speed * 0.62, level.enemyColor, BULLET_RADIUS * 2.2);
+      this.spawnEnemyBullet(this.enemy!.x + offset, this.enemy!.y + 30, Math.PI / 2 + wobble, speed * 0.62, 0xff4d4d, BULLET_RADIUS * 2.35);
     }
 
     if (this.wave % 3 === 0) {
       const aimed = Phaser.Math.Angle.Between(this.enemy!.x, this.enemy!.y, this.player.x, this.player.y);
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, aimed, speed * 0.85, 0xffffff, BULLET_RADIUS * 1.7);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, aimed, speed * 0.85, 0xfff7a8, BULLET_RADIUS * 1.85);
     }
   }
 
@@ -550,20 +551,22 @@ class MainScene extends Phaser.Scene {
     const spin = this.wave * (0.42 + this.levelIndex * 0.08);
     for (let i = 0; i < arms; i++) {
       const angle = spin + (Math.PI * 2 * i) / arms;
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed + 25, i % 2 === 0 ? 0xffd166 : level.enemyColor);
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle + Math.PI, speed * 0.78, 0x7cf7ff);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed + 25, i % 2 === 0 ? 0xffd166 : 0xc77dff, 7);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle + Math.PI, speed * 0.78, 0x7cf7ff, 7);
     }
   }
 
   private spawnEnemyBullet(x: number, y: number, angle: number, speed: number, color: number, radius = BULLET_RADIUS) {
+    const visibleRadius = Math.max(MIN_ENEMY_BULLET_RADIUS, radius);
     const bullet = this.bullets.get(x, y, BULLET_RADIUS, color) as Phaser.GameObjects.Arc | null;
     if (!bullet) return;
     bullet.setActive(true).setVisible(true).setData('grazed', false);
     bullet.setFillStyle(color, 1);
-    bullet.setStrokeStyle(1, 0xffffff, radius > BULLET_RADIUS ? 0.65 : 0.45);
-    bullet.setScale(radius / BULLET_RADIUS);
+    bullet.setStrokeStyle(2, 0xffffff, 0.85);
+    bullet.setScale(visibleRadius / BULLET_RADIUS);
+    bullet.setBlendMode(Phaser.BlendModes.ADD);
     const body = bullet.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(radius);
+    body.setCircle(visibleRadius);
     body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
   }
 
