@@ -62,7 +62,7 @@ const LEVELS: LevelConfig[] = [
 
 class MainScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Arc;
-  private enemy?: Phaser.GameObjects.Shape;
+  private enemy?: Phaser.GameObjects.Shape | Phaser.GameObjects.Image;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
   private fireKey!: Phaser.Input.Keyboard.Key;
@@ -99,6 +99,10 @@ class MainScene extends Phaser.Scene {
 
   constructor() {
     super('main');
+  }
+
+  preload() {
+    this.load.svg('banana-boss', 'assets/banana-boss.svg', { width: 80, height: 80 });
   }
 
   create() {
@@ -215,15 +219,49 @@ class MainScene extends Phaser.Scene {
     } else if (this.levelIndex === 1) {
       this.enemy = this.add.rectangle(WIDTH / 2, 85, 50, 50, level.enemyColor, 1).setRotation(Math.PI / 4);
     } else {
-      this.enemy = this.add.circle(WIDTH / 2, 85, 28, level.enemyColor, 1);
+      this.enemy = this.add.image(WIDTH / 2, 85, 'banana-boss').setScale(0.95);
     }
 
-    this.enemy.setStrokeStyle(2, 0xffffff, 0.7);
+    this.setEnemyStroke();
     this.physics.add.existing(this.enemy);
     const body = this.enemy.body as Phaser.Physics.Arcade.Body;
+    if (this.enemy instanceof Phaser.GameObjects.Image) {
+      body.setSize(58, 54);
+      body.setOffset(11, 13);
+    }
     body.setImmovable(true);
     body.setAllowGravity(false);
     this.enemyOverlap = this.physics.add.overlap(this.enemy, this.playerShots, (_, shot) => this.hitEnemy(shot as Phaser.GameObjects.Rectangle));
+  }
+
+  private setEnemyStroke() {
+    if (this.enemy instanceof Phaser.GameObjects.Shape) {
+      this.enemy.setStrokeStyle(2, 0xffffff, 0.7);
+    }
+  }
+
+  private setEnemyFill(color: number) {
+    if (this.enemy instanceof Phaser.GameObjects.Shape) {
+      this.enemy.setFillStyle(color, 1);
+    }
+  }
+
+  private flashEnemyHit() {
+    if (!this.enemy) return;
+    if (this.enemy instanceof Phaser.GameObjects.Shape) {
+      this.enemy.setFillStyle(0xffffff, 1);
+    } else {
+      this.enemy.setTint(0xffffff);
+    }
+  }
+
+  private resetEnemyVisual() {
+    if (!this.enemy) return;
+    if (this.enemy instanceof Phaser.GameObjects.Shape) {
+      this.enemy.setFillStyle(LEVELS[this.levelIndex].enemyColor, 1);
+    } else {
+      this.enemy.clearTint();
+    }
   }
 
   private showLevelBanner(level: LevelConfig) {
@@ -266,7 +304,7 @@ class MainScene extends Phaser.Scene {
     this.enemy.x = WIDTH / 2 + Math.sin(time / (900 - this.levelIndex * 120)) * (230 + this.levelIndex * 25);
     this.enemy.y = 82 + Math.sin(time / 500) * (12 + this.levelIndex * 4);
     this.enemy.rotation += 0.002 + this.levelIndex * 0.001;
-    this.enemy.setFillStyle(level.enemyColor, 1);
+    this.setEnemyFill(level.enemyColor);
     (this.enemy.body as Phaser.Physics.Arcade.Body).updateFromGameObject();
   }
 
@@ -402,7 +440,7 @@ class MainScene extends Phaser.Scene {
     this.enemyHp--;
     this.score++;
     this.maybeSpawnPowerUp(this.enemy.x, this.enemy.y);
-    this.enemy.setFillStyle(0xffffff, 1);
+    this.flashEnemyHit();
     this.tweens.add({
       targets: this.enemy,
       scaleX: 1.12,
@@ -410,7 +448,7 @@ class MainScene extends Phaser.Scene {
       yoyo: true,
       duration: 35
     });
-    this.time.delayedCall(55, () => this.enemy?.setFillStyle(LEVELS[this.levelIndex].enemyColor, 1));
+    this.time.delayedCall(55, () => this.resetEnemyVisual());
     this.updateHud();
 
     if (this.enemyHp <= 0) this.defeatEnemy();
