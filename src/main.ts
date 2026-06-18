@@ -269,24 +269,24 @@ class MainScene extends Phaser.Scene {
     this.fireKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.input.keyboard!.addCapture([Phaser.Input.Keyboard.KeyCodes.SPACE]);
 
-    this.scoreText = this.add.text(18, 28, '', { fontFamily: 'monospace', fontSize: '15px', color: '#e8f8ff' });
+    this.scoreText = this.add.text(24, 30, '', { fontFamily: 'monospace', fontSize: '14px', color: '#e8f8ff' });
     this.hpText = this.add.text(PLAY_RIGHT - 16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(1, 0);
-    this.levelText = this.add.text(18, 56, '', { fontFamily: 'monospace', fontSize: '15px', color: '#c8f7ff' });
+    this.levelText = this.add.text(24, 58, '', { fontFamily: 'monospace', fontSize: '14px', color: '#c8f7ff' });
     this.add.rectangle(PLAY_CENTER, 70, GAME_WIDTH - 18, 2, 0x28344f, 0.8);
     this.add.rectangle(PLAY_CENTER, 30, 560, 26, 0x050714, 0.92).setStrokeStyle(2, 0x7cf7ff, 0.28);
     this.bossBar = this.add.rectangle(PLAY_CENTER, 30, 548, 16, 0x24111b, 0.95);
     this.bossBarFill = this.add.rectangle(PLAY_CENTER - 274, 30, 548, 16, 0xff4d8d, 1).setOrigin(0, 0.5);
     this.bossNameText = this.add.text(PLAY_CENTER, 45, '', { fontFamily: 'monospace', fontSize: '12px', color: '#ffd6e6' }).setOrigin(0.5, 0);
     this.powerText = this.add.text(PLAY_CENTER, 12, '', { fontFamily: 'monospace', fontSize: '16px', color: '#fff0a6' }).setOrigin(0.5, 0);
-    this.upgradeText = this.add.text(18, 116, '', { fontFamily: 'monospace', fontSize: '12px', color: '#c8f7ff', wordWrap: { width: HUD_WIDTH - 32 } });
-    this.helpText = this.add.text(18, 210, 'CONTROLS\nMove: WASD/Arrows\nShoot: Space\nRestart: R', {
+    this.upgradeText = this.add.text(24, 118, '', { fontFamily: 'monospace', fontSize: '12px', color: '#c8f7ff', wordWrap: { width: HUD_WIDTH - 48 }, lineSpacing: 4 });
+    this.helpText = this.add.text(24, 236, 'CONTROLS\nMove: WASD/Arrows\nShoot: Space\nRestart: R', {
       fontFamily: 'monospace',
       fontSize: '13px',
       color: '#a9bad1',
       lineSpacing: 5
     });
 
-    this.add.rectangle(HUD_WIDTH / 2, 172, HUD_WIDTH - 28, 246, 0x050714, 0.78)
+    this.add.rectangle(HUD_WIDTH / 2, 178, HUD_WIDTH - 36, 292, 0x050714, 0.78)
       .setStrokeStyle(2, 0x7cf7ff, 0.3)
       .setDepth(19);
     this.scoreText.setDepth(21);
@@ -294,10 +294,10 @@ class MainScene extends Phaser.Scene {
     this.upgradeText.setDepth(21);
     this.helpText.setDepth(21);
 
-    this.miniLeaderboardPanel = this.add.rectangle(PLAY_RIGHT + HUD_WIDTH / 2, PLAY_TOP + 84, HUD_WIDTH - 28, 148, 0x050714, 0.82)
+    this.miniLeaderboardPanel = this.add.rectangle(PLAY_RIGHT + HUD_WIDTH / 2, PLAY_TOP + 92, HUD_WIDTH - 36, 164, 0x050714, 0.82)
       .setStrokeStyle(2, 0x7cf7ff, 0.38)
       .setDepth(20);
-    this.miniLeaderboardText = this.add.text(PLAY_RIGHT + 18, PLAY_TOP + 24, this.formatMiniLeaderboard(), {
+    this.miniLeaderboardText = this.add.text(PLAY_RIGHT + 24, PLAY_TOP + 28, this.formatMiniLeaderboard(), {
       fontFamily: 'monospace',
       fontSize: '12px',
       color: '#e8f8ff',
@@ -337,11 +337,12 @@ class MainScene extends Phaser.Scene {
       const size = Phaser.Math.FloatBetween(0.7, 2.2);
       this.add.circle(x, y, size, 0xffffff, alpha);
     }
-    this.add.rectangle(PLAY_CENTER, (HEIGHT + PLAY_TOP) / 2, GAME_WIDTH - 18, HEIGHT - PLAY_TOP - 9).setStrokeStyle(2, 0x28344f, 0.8);
+    this.add.rectangle(PLAY_CENTER, (HEIGHT + PLAY_TOP) / 2, GAME_WIDTH - 28, HEIGHT - PLAY_TOP - 18).setStrokeStyle(2, 0x28344f, 0.55);
+    this.add.rectangle(PLAY_CENTER, (HEIGHT + PLAY_TOP) / 2, GAME_WIDTH - 18, HEIGHT - PLAY_TOP - 8).setStrokeStyle(1, 0x7cf7ff, 0.18);
     this.add.rectangle(HUD_WIDTH / 2, HEIGHT / 2, HUD_WIDTH, HEIGHT, 0x050714, 0.62);
     this.add.rectangle(PLAY_RIGHT + HUD_WIDTH / 2, HEIGHT / 2, HUD_WIDTH, HEIGHT, 0x050714, 0.62);
-    this.add.rectangle(PLAY_X - 1, HEIGHT / 2, 2, HEIGHT, 0x7cf7ff, 0.24).setBlendMode(Phaser.BlendModes.ADD);
-    this.add.rectangle(PLAY_RIGHT + 1, HEIGHT / 2, 2, HEIGHT, 0x7cf7ff, 0.24).setBlendMode(Phaser.BlendModes.ADD);
+    this.add.rectangle(PLAY_X - 1, HEIGHT / 2, 2, HEIGHT, 0x7cf7ff, 0.18).setBlendMode(Phaser.BlendModes.ADD);
+    this.add.rectangle(PLAY_RIGHT + 1, HEIGHT / 2, 2, HEIGHT, 0x7cf7ff, 0.18).setBlendMode(Phaser.BlendModes.ADD);
   }
 
   private startLevel(index: number) {
@@ -703,22 +704,22 @@ class MainScene extends Phaser.Scene {
     this.waitingForUpgradeChoice = true;
     this.levelTransitioning = true;
     this.clearProjectiles();
-    const panelGlow = this.add.rectangle(0, 0, 680, 278, 0x7cf7ff, 0.08).setBlendMode(Phaser.BlendModes.ADD);
-    const panel = this.add.rectangle(0, 0, 660, 260, 0x050714, 0.96).setStrokeStyle(2, 0x7cf7ff, 0.75);
-    const title = this.add.text(0, -104, 'CHOOSE A POWER-UP', {
+    const panelGlow = this.add.rectangle(0, 0, 690, 286, 0x7cf7ff, 0.05).setBlendMode(Phaser.BlendModes.ADD);
+    const panel = this.add.rectangle(0, 0, 660, 258, 0x050714, 0.97).setStrokeStyle(2, 0x7cf7ff, 0.68);
+    const title = this.add.text(0, -98, 'CHOOSE A POWER-UP', {
       fontFamily: 'monospace',
       fontSize: '28px',
       color: '#ffffff',
       stroke: '#7cf7ff',
       strokeThickness: 1
     }).setOrigin(0.5);
-    const hint = this.add.text(0, -72, 'Click a card or press 1 / 2 / 3', {
+    const hint = this.add.text(0, -66, 'Click a card or press 1 / 2 / 3', {
       fontFamily: 'monospace',
       fontSize: '14px',
       color: '#a9bad1'
     }).setOrigin(0.5);
 
-    const overlay = this.add.container(PLAY_CENTER, HEIGHT / 2, [panelGlow, panel, title, hint]);
+    const overlay = this.add.container(PLAY_CENTER, HEIGHT / 2 + 12, [panelGlow, panel, title, hint]);
     const choices: Array<{ kind: UpgradeKind; title: string; description: string; color: number }> = [
       { kind: 'speed', title: 'Faster Bullets', description: '+ projectile speed', color: 0x7cf7ff },
       { kind: 'size', title: 'Larger Bullets', description: '+ shot size', color: 0xffd166 },
@@ -740,15 +741,15 @@ class MainScene extends Phaser.Scene {
 
     choices.forEach((choice, index) => {
       const x = -210 + index * 210;
-      const glow = this.add.rectangle(x, 36, 188, 128, choice.color, 0.08).setBlendMode(Phaser.BlendModes.ADD);
-      const card = this.add.rectangle(x, 36, 180, 120, 0x11182a, 0.98)
+      const glow = this.add.rectangle(x, 38, 188, 126, choice.color, 0.06).setBlendMode(Phaser.BlendModes.ADD);
+      const card = this.add.rectangle(x, 38, 180, 116, 0x11182a, 0.98)
         .setStrokeStyle(2, choice.color, 0.9)
         .setInteractive({ useHandCursor: true });
-      const topLine = this.add.rectangle(x, -22, 150, 3, choice.color, 0.95).setBlendMode(Phaser.BlendModes.ADD);
-      const numberBadge = this.add.circle(x - 70, -8, 14, choice.color, 0.92);
-      const number = this.add.text(x - 70, -8, `${index + 1}`, { fontFamily: 'monospace', fontSize: '16px', color: '#050714' }).setOrigin(0.5);
-      const cardTitle = this.add.text(x, 20, choice.title, { fontFamily: 'monospace', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5);
-      const description = this.add.text(x, 50, choice.description, { fontFamily: 'monospace', fontSize: '13px', color: '#a9bad1' }).setOrigin(0.5);
+      const topLine = this.add.rectangle(x, -18, 150, 3, choice.color, 0.95).setBlendMode(Phaser.BlendModes.ADD);
+      const numberBadge = this.add.circle(x - 70, -4, 14, choice.color, 0.92);
+      const number = this.add.text(x - 70, -4, `${index + 1}`, { fontFamily: 'monospace', fontSize: '16px', color: '#050714' }).setOrigin(0.5);
+      const cardTitle = this.add.text(x, 24, choice.title, { fontFamily: 'monospace', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5);
+      const description = this.add.text(x, 54, choice.description, { fontFamily: 'monospace', fontSize: '13px', color: '#a9bad1' }).setOrigin(0.5);
       card.on('pointerdown', () => choose(choice.kind));
       card.on('pointerover', () => {
         card.setFillStyle(0x1c2742, 1);
@@ -995,13 +996,13 @@ class MainScene extends Phaser.Scene {
 
   private updateHud() {
     const level = LEVELS[this.levelIndex];
-    this.scoreText?.setText(`Score ${this.score}  Grazes ${this.grazes}`);
+    this.scoreText?.setText(`SCORE ${this.score}\nGRAZES ${this.grazes}`);
     this.hpText?.setText(`HP ${'♥'.repeat(Math.max(0, this.hp))}`);
     this.levelText?.setText(`Level ${this.levelIndex + 1}/${LEVELS.length}`);
     this.updateBossHealthBar(level);
     this.updatePowerUpHud();
     const spreadPct = Math.round(Math.min(0.45, this.spreadChanceUpgrades * SPREAD_CHANCE_UPGRADE) * 100);
-    this.upgradeText?.setText(`Upgrades: Speed +${this.bulletSpeedUpgrades}  Size +${this.bulletSizeUpgrades}  Spread ${spreadPct}%`);
+    this.upgradeText?.setText(`UPGRADES\nSpeed +${this.bulletSpeedUpgrades}\nSize +${this.bulletSizeUpgrades}\nSpread ${spreadPct}%`);
   }
 
   private updateBossHealthBar(level: LevelConfig) {
