@@ -9,7 +9,8 @@ const PLAY_CENTER = PLAY_X + GAME_WIDTH / 2;
 const WIDTH = GAME_WIDTH + HUD_WIDTH * 2;
 const HEIGHT = 600;
 const PLAY_TOP = 88;
-const PLAYER_SPEED = 270;
+const PLAYER_SPEED = 255;
+const PLAYER_SPEED_UPGRADE = 28;
 const PLAYER_RADIUS = 10;
 const PLAYER_HIT_ELLIPSE_X = 15;
 const PLAYER_HIT_ELLIPSE_Y = 21;
@@ -32,7 +33,7 @@ const LEADERBOARD_LIMIT = 10;
 const SHARED_LEADERBOARD_URL = import.meta.env.VITE_LEADERBOARD_URL || '';
 
 type PowerUpKind = 'big' | 'rapid' | 'spread';
-type UpgradeKind = 'speed' | 'size' | 'spreadChance';
+type UpgradeKind = 'speed' | 'size' | 'spreadChance' | 'moveSpeed';
 type AttackPattern = 'ring' | 'burst' | 'heavy' | 'spiral';
 type EnemyMovePattern = 'sway' | 'figureEight' | 'hoverDash' | 'drift';
 
@@ -210,6 +211,7 @@ class MainScene extends Phaser.Scene {
   private bulletSpeedUpgrades = 0;
   private bulletSizeUpgrades = 0;
   private spreadChanceUpgrades = 0;
+  private moveSpeedUpgrades = 0;
 
   constructor() {
     super('main');
@@ -243,6 +245,7 @@ class MainScene extends Phaser.Scene {
     this.bulletSpeedUpgrades = 0;
     this.bulletSizeUpgrades = 0;
     this.spreadChanceUpgrades = 0;
+    this.moveSpeedUpgrades = 0;
     this.scoreSubmitted = false;
     this.sharedLeaderboard = [];
     this.leaderboardStatus = 'Loading shared leaderboard...';
@@ -467,7 +470,8 @@ class MainScene extends Phaser.Scene {
     const down = this.cursors.down?.isDown || this.wasd.S.isDown;
 
     const velocity = new Phaser.Math.Vector2(Number(right) - Number(left), Number(down) - Number(up));
-    if (velocity.lengthSq() > 0) velocity.normalize().scale(PLAYER_SPEED);
+    const playerSpeed = PLAYER_SPEED + this.moveSpeedUpgrades * PLAYER_SPEED_UPGRADE;
+    if (velocity.lengthSq() > 0) velocity.normalize().scale(playerSpeed);
     body.setVelocity(velocity.x, velocity.y);
 
     const flicker = this.time.now < this.invulnerableUntil && Math.floor(this.time.now / 80) % 2 === 0;
@@ -718,8 +722,8 @@ class MainScene extends Phaser.Scene {
     this.waitingForUpgradeChoice = true;
     this.levelTransitioning = true;
     this.clearProjectiles();
-    const panelGlow = this.add.rectangle(0, 0, 690, 286, 0x7cf7ff, 0.05).setBlendMode(Phaser.BlendModes.ADD);
-    const panel = this.add.rectangle(0, 0, 660, 258, 0x050714, 0.97).setStrokeStyle(2, 0x7cf7ff, 0.68);
+    const panelGlow = this.add.rectangle(0, 0, 760, 304, 0x7cf7ff, 0.05).setBlendMode(Phaser.BlendModes.ADD);
+    const panel = this.add.rectangle(0, 0, 730, 278, 0x050714, 0.97).setStrokeStyle(2, 0x7cf7ff, 0.68);
     const title = this.add.text(0, -98, 'CHOOSE A POWER-UP', {
       fontFamily: 'monospace',
       fontSize: '28px',
@@ -737,7 +741,8 @@ class MainScene extends Phaser.Scene {
     const choices: Array<{ kind: UpgradeKind; title: string; description: string; color: number }> = [
       { kind: 'speed', title: 'Faster Bullets', description: '+ projectile speed', color: 0x7cf7ff },
       { kind: 'size', title: 'Larger Bullets', description: '+ shot size', color: 0xffd166 },
-      { kind: 'spreadChance', title: 'Spread Chance', description: '+12% chance to split', color: 0xc77dff }
+      { kind: 'spreadChance', title: 'Spread Chance', description: '+12% chance to split', color: 0xc77dff },
+      { kind: 'moveSpeed', title: 'Swift Peel', description: '+ banana move speed', color: 0x9cff6a }
     ];
 
     let chosen = false;
@@ -754,26 +759,26 @@ class MainScene extends Phaser.Scene {
     };
 
     choices.forEach((choice, index) => {
-      const x = -210 + index * 210;
-      const glow = this.add.rectangle(x, 38, 188, 126, choice.color, 0.06).setBlendMode(Phaser.BlendModes.ADD);
-      const card = this.add.rectangle(x, 38, 180, 116, 0x11182a, 0.98)
+      const x = -270 + index * 180;
+      const glow = this.add.rectangle(x, 38, 168, 126, choice.color, 0.06).setBlendMode(Phaser.BlendModes.ADD);
+      const card = this.add.rectangle(x, 38, 160, 116, 0x11182a, 0.98)
         .setStrokeStyle(2, choice.color, 0.9)
         .setInteractive({ useHandCursor: true });
-      const topLine = this.add.rectangle(x, -18, 150, 3, choice.color, 0.95).setBlendMode(Phaser.BlendModes.ADD);
-      const numberBadge = this.add.circle(x - 70, -4, 14, choice.color, 0.92);
-      const number = this.add.text(x - 70, -4, `${index + 1}`, { fontFamily: 'monospace', fontSize: '16px', color: '#050714' }).setOrigin(0.5);
+      const topLine = this.add.rectangle(x, -18, 132, 3, choice.color, 0.95).setBlendMode(Phaser.BlendModes.ADD);
+      const numberBadge = this.add.circle(x - 60, -4, 14, choice.color, 0.92);
+      const number = this.add.text(x - 60, -4, `${index + 1}`, { fontFamily: 'monospace', fontSize: '16px', color: '#050714' }).setOrigin(0.5);
       const cardTitle = this.add.text(x, 24, choice.title, { fontFamily: 'monospace', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5);
       const description = this.add.text(x, 54, choice.description, { fontFamily: 'monospace', fontSize: '13px', color: '#a9bad1' }).setOrigin(0.5);
       card.on('pointerdown', () => choose(choice.kind));
       card.on('pointerover', () => {
         card.setFillStyle(0x1c2742, 1);
         glow.setAlpha(0.18);
-        topLine.setDisplaySize(170, 3);
+        topLine.setDisplaySize(132, 3);
       });
       card.on('pointerout', () => {
         card.setFillStyle(0x11182a, 0.98);
         glow.setAlpha(0.08);
-        topLine.setDisplaySize(150, 3);
+        topLine.setDisplaySize(132, 3);
       });
       this.tweens.add({ targets: glow, alpha: 0.14, yoyo: true, repeat: -1, duration: 650 + index * 90 });
       overlay.add([glow, card, topLine, numberBadge, number, cardTitle, description]);
@@ -782,12 +787,14 @@ class MainScene extends Phaser.Scene {
     this.input.keyboard?.once('keydown-ONE', () => choose('speed'));
     this.input.keyboard?.once('keydown-TWO', () => choose('size'));
     this.input.keyboard?.once('keydown-THREE', () => choose('spreadChance'));
+    this.input.keyboard?.once('keydown-FOUR', () => choose('moveSpeed'));
   }
 
   private applyUpgrade(kind: UpgradeKind) {
     if (kind === 'speed') this.bulletSpeedUpgrades++;
     if (kind === 'size') this.bulletSizeUpgrades++;
     if (kind === 'spreadChance') this.spreadChanceUpgrades++;
+    if (kind === 'moveSpeed') this.moveSpeedUpgrades++;
     this.updateHud();
   }
 
@@ -1016,7 +1023,7 @@ class MainScene extends Phaser.Scene {
     this.updateBossHealthBar(level);
     this.updatePowerUpHud();
     const spreadPct = Math.round(Math.min(0.45, this.spreadChanceUpgrades * SPREAD_CHANCE_UPGRADE) * 100);
-    this.upgradeText?.setText(`UPGRADES\nSpeed +${this.bulletSpeedUpgrades}\nSize +${this.bulletSizeUpgrades}\nSpread ${spreadPct}%`);
+    this.upgradeText?.setText(`UPGRADES\nShot Speed +${this.bulletSpeedUpgrades}\nShot Size +${this.bulletSizeUpgrades}\nMove Speed +${this.moveSpeedUpgrades}\nSpread ${spreadPct}%`);
   }
 
   private updateBossHealthBar(level: LevelConfig) {
