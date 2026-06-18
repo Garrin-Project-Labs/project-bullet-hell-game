@@ -26,6 +26,8 @@ const SPREAD_CHANCE_UPGRADE = 0.12;
 const POWER_UP_DROP_CHANCE = 0.03;
 const POWER_UP_TTL_MS = 3000;
 const POWER_UP_DURATION_MS = 7000;
+const BIO_POWER_UP_DURATION_MS = 5000;
+const BIO_POWER_UP_WEIGHT = 0.12;
 const POWER_UP_MIN_GAP_MS = 4000;
 const ATTACK_PATTERN_MS = 5000;
 const LEVEL_FIVE_INDEX = 4;
@@ -37,7 +39,7 @@ const LEADERBOARD_NAME_STORAGE_KEY = 'bulletHellLeaderboardName';
 // Shared leaderboard endpoint backed by the Google Apps Script web app.
 const SHARED_LEADERBOARD_URL = import.meta.env.VITE_LEADERBOARD_URL || '';
 
-type PowerUpKind = 'big' | 'rapid' | 'spread';
+type PowerUpKind = 'big' | 'rapid' | 'spread' | 'bio';
 type UpgradeKind = 'speed' | 'size' | 'spreadChance' | 'moveSpeed';
 type AttackPattern = 'ring' | 'burst' | 'heavy' | 'spiral';
 type EnemyMovePattern = 'sway' | 'figureEight' | 'hoverDash' | 'drift';
@@ -197,6 +199,7 @@ class MainScene extends Phaser.Scene {
   private levelFiveWallUsed = false;
   private enemyOverlap?: Phaser.Physics.Arcade.Collider;
   private powerUpOverlap?: Phaser.Physics.Arcade.Collider;
+  private immunityRing?: Phaser.GameObjects.Arc;
 
   private hp = 5;
   private score = 0;
@@ -247,6 +250,8 @@ class MainScene extends Phaser.Scene {
     this.enemyInvulnerableUntil = 0;
     this.activePowerUp = undefined;
     this.powerUpUntil = 0;
+    this.immunityRing?.destroy();
+    this.immunityRing = undefined;
     this.levelStartedAt = 0;
     this.lastPowerUpSpawn = -POWER_UP_MIN_GAP_MS;
     this.enemyMovePattern = 'sway';
@@ -489,8 +494,9 @@ class MainScene extends Phaser.Scene {
     if (velocity.lengthSq() > 0) velocity.normalize().scale(playerSpeed);
     body.setVelocity(velocity.x, velocity.y);
 
-    const flicker = this.time.now < this.invulnerableUntil && Math.floor(this.time.now / 80) % 2 === 0;
+    const flicker = this.activePowerUp !== 'bio' && this.time.now < this.invulnerableUntil && Math.floor(this.time.now / 80) % 2 === 0;
     this.player.setAlpha(flicker ? 0.35 : 1);
+    this.updateImmunityRing();
   }
 
   private pickEnemyMovement() {
@@ -1070,9 +1076,9 @@ class MainScene extends Phaser.Scene {
       Phaser.Math.FloatBetween(0, 1) > POWER_UP_DROP_CHANCE
     ) return;
 
-    const kinds: PowerUpKind[] = ['big', 'rapid', 'spread'];
-    const kind = Phaser.Utils.Array.GetRandom(kinds);
-    const colors: Record<PowerUpKind, number> = { big: 0xffd166, rapid: 0x7cf7ff, spread: 0xc77dff };
+    const normalKinds: PowerUpKind[] = ['big', 'rapid', 'spread'];
+    const kind: PowerUpKind = Phaser.Math.FloatBetween(0, 1) < BIO_POWER_UP_WEIGHT ? 'bio' : Phaser.Utils.Array.GetRandom(normalKinds);
+    const colors: Record<PowerUpKind, number> = { big: 0xffd166, rapid: 0x7cf7ff, spread: 0xc77dff, bio: 0x9cff6a };
     const powerUp = this.powerUps.get(
       Phaser.Math.Clamp(x + Phaser.Math.Between(-120, 120), PLAY_X + 70, PLAY_RIGHT - 70),
       Phaser.Math.Clamp(y + Phaser.Math.Between(70, 240), 110, HEIGHT - 120),
@@ -1094,10 +1100,10 @@ class MainScene extends Phaser.Scene {
     powerUp.setData('glow', glow);
     powerUp.setData('halo', halo);
 
-    const glyphs: Record<PowerUpKind, string> = { big: '+', rapid: 'R', spread: 'S' };
+    const glyphs: Record<PowerUpKind, string> = { big: '+', rapid: 'R', spread: 'S', bio: 'BIO' };
     const label = this.add.text(powerUp.x, powerUp.y, glyphs[kind], {
       fontFamily: 'monospace',
-      fontSize: '18px',
+      fontSize: kind === 'bio' ? '11px' : '18px',
       color: '#1b1020'
     }).setOrigin(0.5);
     powerUp.setData('label', label);
@@ -1114,7 +1120,13 @@ class MainScene extends Phaser.Scene {
     const kind = powerUp.getData('kind') as PowerUpKind;
     this.destroyPowerUp(powerUp);
     this.activePowerUp = kind;
-    this.powerUpUntil = this.time.now + POWER_UP_DURATION_MS;
+    this.powerUpUntil = this.time.now + (kind === 'bio' ? BIO_POWER_UP_DURATION_MS : POWER_UP_DURATION_MS);
+    if (kind === 'bio') {
+      this.invulnerableUntil = Math.max(this.invulnerableUntil, this.powerUpUntil);
+      this.showImmunityRing();
+    } else {
+      this.hideImmunityRing();
+    }
     this.spawnPowerUpText(kind);
     this.updateHud();
   }
@@ -1130,7 +1142,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private spawnPowerUpText(kind: PowerUpKind) {
-    const labels: Record<PowerUpKind, string> = { big: 'BIG SHOTS', rapid: 'RAPID FIRE', spread: 'SPREAD SHOT' };
+    const labels: Record<PowerUpKind, string> = { big: 'BIG SHOTS', rapid: 'RAPID FIRE', spread: 'SPREAD SHOT', bio: 'BIO SHIELD' };
     const text = this.add.text(this.player.x, this.player.y - 34, labels[kind], {
       fontFamily: 'monospace',
       fontSize: '15px',
@@ -1139,6 +1151,27 @@ class MainScene extends Phaser.Scene {
       strokeThickness: 4
     }).setOrigin(0.5);
     this.tweens.add({ targets: text, y: text.y - 24, alpha: 0, duration: 700, onComplete: () => text.destroy() });
+  }
+
+  private showImmunityRing() {
+    this.hideImmunityRing();
+    this.immunityRing = this.add.circle(this.player.x, this.player.y, 34, 0x9cff6a, 0)
+      .setStrokeStyle(5, 0x9cff6a, 0.95)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(16);
+    this.tweens.add({ targets: this.immunityRing, scale: 1.08, yoyo: true, repeat: -1, duration: 260 });
+  }
+
+  private hideImmunityRing() {
+    this.immunityRing?.destroy();
+    this.immunityRing = undefined;
+  }
+
+  private updateImmunityRing() {
+    if (this.activePowerUp !== 'bio' || !this.immunityRing) return;
+    this.immunityRing.setPosition(this.player.x, this.player.y);
+    const remaining = Math.max(0, this.powerUpUntil - this.time.now);
+    this.immunityRing.setAlpha(remaining < 1200 && Math.floor(this.time.now / 110) % 2 === 0 ? 0.35 : 1);
   }
 
   private syncPowerUpLabels() {
@@ -1159,6 +1192,7 @@ class MainScene extends Phaser.Scene {
     if (time >= this.powerUpUntil) {
       this.activePowerUp = undefined;
       this.powerUpUntil = 0;
+      this.hideImmunityRing();
       this.updateHud();
       return;
     }
@@ -1173,7 +1207,7 @@ class MainScene extends Phaser.Scene {
     }
 
     const seconds = Math.max(0, Math.ceil((this.powerUpUntil - this.time.now) / 1000));
-    const labels: Record<PowerUpKind, string> = { big: 'Big Shots', rapid: 'Rapid Fire', spread: 'Spread Shot' };
+    const labels: Record<PowerUpKind, string> = { big: 'Big Shots', rapid: 'Rapid Fire', spread: 'Spread Shot', bio: 'BIO Shield' };
     this.powerText?.setText(`${labels[this.activePowerUp]} ${seconds}s`);
   }
 
