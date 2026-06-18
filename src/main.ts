@@ -170,6 +170,8 @@ class MainScene extends Phaser.Scene {
   private bossNameText!: Phaser.GameObjects.Text;
   private powerText!: Phaser.GameObjects.Text;
   private upgradeText!: Phaser.GameObjects.Text;
+  private miniLeaderboardPanel!: Phaser.GameObjects.Rectangle;
+  private miniLeaderboardText!: Phaser.GameObjects.Text;
   private helpText!: Phaser.GameObjects.Text;
   private overlay?: Phaser.GameObjects.Container;
   private scoreSubmitted = false;
@@ -276,6 +278,16 @@ class MainScene extends Phaser.Scene {
       fontSize: '15px',
       color: '#a9bad1'
     });
+
+    this.miniLeaderboardPanel = this.add.rectangle(WIDTH - 96, PLAY_TOP + 72, 176, 124, 0x050714, 0.82)
+      .setStrokeStyle(2, 0x7cf7ff, 0.38)
+      .setDepth(20);
+    this.miniLeaderboardText = this.add.text(WIDTH - 172, PLAY_TOP + 24, this.formatMiniLeaderboard(), {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#e8f8ff',
+      lineSpacing: 5
+    }).setDepth(21);
 
     void this.loadSharedLeaderboard();
     this.startLevel(0);
@@ -1088,8 +1100,10 @@ class MainScene extends Phaser.Scene {
       const entries = Array.isArray(data?.scores) ? data.scores : [];
       this.sharedLeaderboard = entries.filter((entry: LeaderboardEntry) => typeof entry?.score === 'number').slice(0, LEADERBOARD_LIMIT);
       this.leaderboardStatus = 'Shared leaderboard online';
+      this.updateMiniLeaderboard();
     } catch {
-      this.leaderboardStatus = 'Shared leaderboard unavailable'
+      this.leaderboardStatus = 'Shared leaderboard unavailable';
+      this.updateMiniLeaderboard()
     }
   }
 
@@ -1107,8 +1121,10 @@ class MainScene extends Phaser.Scene {
       const entries = Array.isArray(data?.scores) ? data.scores : [];
       this.sharedLeaderboard = entries.filter((entry: LeaderboardEntry) => typeof entry?.score === 'number').slice(0, LEADERBOARD_LIMIT);
       this.leaderboardStatus = 'Shared score saved';
+      this.updateMiniLeaderboard();
     } catch {
       this.leaderboardStatus = 'Shared save failed; try again later';
+      this.updateMiniLeaderboard();
     }
     statusText.setText(this.leaderboardStatus);
     leaderboardText.setText(this.formatLeaderboard());
@@ -1131,6 +1147,27 @@ class MainScene extends Phaser.Scene {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+  }
+
+  private updateMiniLeaderboard() {
+    this.miniLeaderboardText?.setText(this.formatMiniLeaderboard());
+  }
+
+  private formatMiniLeaderboard() {
+    const entries = this.getLeaderboard().slice(0, 3);
+    const lines = ['TOP 3'];
+    if (entries.length === 0) {
+      lines.push('loading...', '', 'No scores yet');
+      return lines.join('\n');
+    }
+
+    entries.forEach((entry, index) => {
+      const medal = ['🥇', '🥈', '🥉'][index] ?? `${index + 1}.`;
+      const name = entry.name.slice(0, 8).padEnd(8, ' ');
+      lines.push(`${medal} ${name}`);
+      lines.push(`   ${entry.score}  L${entry.level}`);
+    });
+    return lines.join('\n');
   }
 
   private formatLeaderboard() {
