@@ -1220,6 +1220,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private showLeaderboardOverlay(titleText: string, titleColor: string) {
+    const qualifies = this.scoreQualifiesForLeaderboard();
     const panel = this.add.rectangle(0, 0, 600, 390, 0x050714, 0.94).setStrokeStyle(2, 0x7cf7ff, 0.85);
     const title = this.add.text(0, -168, titleText, { fontFamily: 'monospace', fontSize: '34px', color: titleColor }).setOrigin(0.5);
     const stats = this.add.text(0, -124, `Score: ${this.score}   Level: ${this.levelIndex + 1}/${LEVELS.length}   Grazes: ${this.grazes}`, {
@@ -1227,10 +1228,10 @@ class MainScene extends Phaser.Scene {
       fontSize: '16px',
       color: '#e8f8ff'
     }).setOrigin(0.5);
-    const prompt = this.add.text(0, -92, 'Enter your name for the local leaderboard:', {
+    const prompt = this.add.text(0, -92, qualifies ? 'NEW TOP 10! Enter your name:' : 'Not top 10 yet — keep dodging.', {
       fontFamily: 'monospace',
       fontSize: '14px',
-      color: '#a9bad1'
+      color: qualifies ? '#fff0a6' : '#a9bad1'
     }).setOrigin(0.5);
     const nameText = this.add.text(0, -64, '', {
       fontFamily: 'monospace',
@@ -1239,7 +1240,7 @@ class MainScene extends Phaser.Scene {
       backgroundColor: '#11182a',
       padding: { x: 12, y: 6 }
     }).setOrigin(0.5);
-    const saveHint = this.add.text(0, -26, 'Type name, press Enter to save • R to restart', {
+    const saveHint = this.add.text(0, -26, qualifies ? 'Type name, Enter to save • Esc to skip' : 'Press R to restart', {
       fontFamily: 'monospace',
       fontSize: '13px',
       color: '#c8f7ff'
@@ -1256,26 +1257,42 @@ class MainScene extends Phaser.Scene {
       align: 'left'
     }).setOrigin(0.5, 0);
 
+    if (!qualifies) {
+      nameText.setVisible(false);
+    }
+
     this.overlay = this.add.container(PLAY_CENTER, HEIGHT / 2, [panel, title, stats, prompt, nameText, saveHint, statusText, leaderboardText]);
-    this.leaderboardNameEntryActive = true;
+    this.leaderboardNameEntryActive = qualifies;
+
+    if (!qualifies) return;
 
     let playerName = '';
     const refreshName = () => nameText.setText(playerName || '_');
     refreshName();
 
+    const finishNameEntry = (message: string) => {
+      this.leaderboardNameEntryActive = false;
+      prompt.setText(message);
+      saveHint.setText('Press R to restart');
+      nameText.setVisible(false);
+    };
+
     const submitScore = () => {
       if (this.scoreSubmitted) return;
-      this.leaderboardNameEntryActive = false;
       const safeName = (playerName.trim() || 'BANANA').slice(0, 12).toUpperCase();
       this.scoreSubmitted = true;
-      prompt.setText(`Saved as ${safeName}!`);
-      saveHint.setText('Press R to restart');
+      finishNameEntry(`Saved as ${safeName}!`);
       void this.submitSharedScore(safeName, statusText, leaderboardText);
     };
 
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
+      if (!this.leaderboardNameEntryActive || this.scoreSubmitted) return;
       if (event.key === 'Enter') {
         submitScore();
+        return;
+      }
+      if (event.key === 'Escape') {
+        finishNameEntry('Skipped leaderboard submission');
         return;
       }
       if (event.key === 'Backspace') {
@@ -1283,11 +1300,21 @@ class MainScene extends Phaser.Scene {
         refreshName();
         return;
       }
-      if (event.key.length === 1 && /^[a-zA-Z0-9 _-]$/.test(event.key) && playerName.length < 12 && !this.scoreSubmitted) {
+      if (event.key.length === 1 && /^[a-zA-Z0-9 _-]$/.test(event.key) && playerName.length < 12) {
         playerName += event.key;
         refreshName();
       }
     });
+  }
+
+  private scoreQualifiesForLeaderboard() {
+    const entries = this.getLeaderboard();
+    if (entries.length < LEADERBOARD_LIMIT) return true;
+
+    const cutoff = entries[LEADERBOARD_LIMIT - 1];
+    if (this.score !== cutoff.score) return this.score > cutoff.score;
+    if (this.levelIndex + 1 !== cutoff.level) return this.levelIndex + 1 > cutoff.level;
+    return this.grazes > cutoff.grazes;
   }
 
   private getLeaderboard(): LeaderboardEntry[] {
