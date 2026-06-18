@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="arcade drone enemy">
+  <defs>
+    <filter id="glow" x="-35%" y="-35%" width="170%" height="170%">
+      <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#7cf7ff" flood-opacity="0.7"/>
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <linearGradient id="metal" x1="18" y1="14" x2="78" y2="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.48" stop-color="#cfd8ff"/>
+      <stop offset="1" stop-color="#6b78aa"/>
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <path d="M48 10 82 32 70 76 48 88 26 76 14 32Z" fill="url(#metal)" stroke="#07101f" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M48 18 72 34 63 68 48 77 33 68 24 34Z" fill="#141a34" opacity="0.82"/>
+    <path d="M18 38 4 49l14 11 7-11Z" fill="#27345f" stroke="#07101f" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M78 38 92 49 78 60l-7-11Z" fill="#27345f" stroke="#07101f" stroke-width="4" stroke-linejoin="round"/>
+    <circle cx="48" cy="45" r="13" fill="#7cf7ff" stroke="#e8fbff" stroke-width="3"/>
+    <circle cx="48" cy="45" r="5" fill="#ffffff"/>
+    <path d="M34 67h28" stroke="#7cf7ff" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
+  </g>
+</svg>

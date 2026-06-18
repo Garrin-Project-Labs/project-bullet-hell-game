@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="arcade cruiser enemy">
+  <defs>
+    <filter id="glow" x="-35%" y="-35%" width="170%" height="170%">
+      <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#ffd166" flood-opacity="0.72"/>
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <linearGradient id="hull" x1="16" y1="16" x2="82" y2="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff0a6"/>
+      <stop offset="0.5" stop-color="#ff8f4d"/>
+      <stop offset="1" stop-color="#8f315c"/>
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <path d="M48 8 84 50 48 88 12 50Z" fill="url(#hull)" stroke="#190814" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M48 18 70 50 48 76 26 50Z" fill="#25102a" opacity="0.78"/>
+    <path d="M48 8v80" stroke="#fff5bf" stroke-width="4" stroke-linecap="round" opacity="0.65"/>
+    <path d="M25 46H8v10h20Z" fill="#ff4d8d" stroke="#190814" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M71 46h17v10H68Z" fill="#ff4d8d" stroke="#190814" stroke-width="4" stroke-linejoin="round"/>
+    <circle cx="48" cy="50" r="10" fill="#ffd166" stroke="#fff8d1" stroke-width="3"/>
+    <path d="M36 30h24M34 68h28" stroke="#ffd166" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+  </g>
+</svg>

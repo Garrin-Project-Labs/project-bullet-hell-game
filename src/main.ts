@@ -248,6 +248,10 @@ class MainScene extends Phaser.Scene {
   preload() {
     this.load.svg('banana-boss', 'assets/banana-boss.svg', { width: 80, height: 80 });
     this.load.svg('final-boss', 'assets/final-boss.svg', { width: 96, height: 96 });
+    this.load.svg('enemy-drone', 'assets/enemy-drone.svg', { width: 82, height: 82 });
+    this.load.svg('enemy-cruiser', 'assets/enemy-cruiser.svg', { width: 82, height: 82 });
+    this.load.svg('enemy-orb', 'assets/enemy-orb.svg', { width: 82, height: 82 });
+    this.load.svg('enemy-starblade', 'assets/enemy-starblade.svg', { width: 82, height: 82 });
   }
 
   create() {
@@ -429,27 +433,24 @@ class MainScene extends Phaser.Scene {
     this.enemyOverlap?.destroy();
     this.enemy?.destroy();
 
-    const shape = this.levelIndex % 4;
+    const enemySprites = ['enemy-drone', 'enemy-cruiser', 'enemy-orb', 'enemy-starblade'];
     if (this.isFinalBossLevel()) {
       this.enemy = this.add.image(PLAY_CENTER, PLAY_TOP + 36, 'final-boss').setScale(0.92);
     } else if (this.isEndlessLevel()) {
-      this.enemy = this.add.star(PLAY_CENTER, PLAY_TOP + 30, 7, 18, 38, level.enemyColor, 1);
-    } else if (shape === 0) {
-      this.enemy = this.add.triangle(PLAY_CENTER, PLAY_TOP + 28, 0, 34, 26, 0, 52, 34, level.enemyColor, 1);
-    } else if (shape === 1) {
-      this.enemy = this.add.rectangle(PLAY_CENTER, PLAY_TOP + 28, 50, 50, level.enemyColor, 1).setRotation(Math.PI / 4);
-    } else if (shape === 2) {
-      this.enemy = this.add.circle(PLAY_CENTER, PLAY_TOP + 28, 28, level.enemyColor, 1);
+      this.enemy = this.add.image(PLAY_CENTER, PLAY_TOP + 30, 'enemy-starblade').setScale(0.98).setTint(level.enemyColor);
     } else {
-      this.enemy = this.add.star(PLAY_CENTER, PLAY_TOP + 28, 5, 18, 34, level.enemyColor, 1);
+      const spriteKey = enemySprites[this.levelIndex % enemySprites.length];
+      this.enemy = this.add.image(PLAY_CENTER, PLAY_TOP + 28, spriteKey).setScale(0.94).setTint(level.enemyColor);
     }
 
     this.setEnemyStroke();
     this.physics.add.existing(this.enemy);
     const body = this.enemy.body as Phaser.Physics.Arcade.Body;
     if (this.enemy instanceof Phaser.GameObjects.Image) {
-      body.setSize(46, 80);
-      body.setOffset(25, 10);
+      const bodyWidth = this.isFinalBossLevel() ? 54 : 50;
+      const bodyHeight = this.isFinalBossLevel() ? 78 : 54;
+      body.setSize(bodyWidth, bodyHeight);
+      body.setOffset((this.enemy.displayWidth - bodyWidth) / 2, (this.enemy.displayHeight - bodyHeight) / 2);
     }
     body.setImmovable(true);
     body.setAllowGravity(false);
@@ -964,27 +965,27 @@ class MainScene extends Phaser.Scene {
     this.waitingForUpgradeChoice = true;
     this.levelTransitioning = true;
     this.clearProjectiles();
-    const panelGlow = this.add.rectangle(0, 0, 760, 304, 0x7cf7ff, 0.05).setBlendMode(Phaser.BlendModes.ADD);
-    const panel = this.add.rectangle(0, 0, 730, 278, 0x050714, 0.97).setStrokeStyle(2, 0x7cf7ff, 0.68);
-    const title = this.add.text(0, -98, 'CHOOSE A POWER-UP', {
+    const panelGlow = this.add.rectangle(0, 0, 780, 332, 0x7cf7ff, 0.05).setBlendMode(Phaser.BlendModes.ADD);
+    const panel = this.add.rectangle(0, 0, 750, 306, 0x050714, 0.97).setStrokeStyle(2, 0x7cf7ff, 0.68);
+    const title = this.add.text(0, -116, 'CHOOSE YOUR UPGRADE', {
       fontFamily: 'monospace',
       fontSize: '28px',
       color: '#ffffff',
       stroke: '#7cf7ff',
       strokeThickness: 1
     }).setOrigin(0.5);
-    const hint = this.add.text(0, -66, 'Click a card or press 1 / 2 / 3 / 4', {
+    const hint = this.add.text(0, -84, 'Click a card or press 1 / 2 / 3 / 4', {
       fontFamily: 'monospace',
       fontSize: '14px',
       color: '#a9bad1'
     }).setOrigin(0.5);
 
     const overlay = this.add.container(PLAY_CENTER, HEIGHT / 2 + 12, [panelGlow, panel, title, hint]);
-    const choices: Array<{ kind: UpgradeKind; title: string; description: string; color: number }> = [
-      { kind: 'speed', title: 'Faster Bullets', description: '+ projectile speed', color: 0x7cf7ff },
-      { kind: 'size', title: 'Larger Bullets', description: '+ shot size', color: 0xffd166 },
-      { kind: 'spreadChance', title: 'Spread Chance', description: '+12% chance to split', color: 0xc77dff },
-      { kind: 'moveSpeed', title: 'Swift Peel', description: '+ banana move speed', color: 0x9cff6a }
+    const choices: Array<{ kind: UpgradeKind; title: string; subtitle: string; description: string; color: number; icon: string }> = [
+      { kind: 'speed', title: 'Hotter Shots', subtitle: 'Laser Core', description: '+90 projectile speed', color: 0x7cf7ff, icon: '➜' },
+      { kind: 'size', title: 'Heavy Peel', subtitle: 'Wide Rounds', description: '+4 shot size', color: 0xffd166, icon: '●' },
+      { kind: 'spreadChance', title: 'Forked Fire', subtitle: 'Chaos Split', description: '+12% split chance', color: 0xc77dff, icon: '✦' },
+      { kind: 'moveSpeed', title: 'Slipstream', subtitle: 'Nimble Drift', description: '+28 move speed', color: 0x9cff6a, icon: '◆' }
     ];
 
     let chosen = false;
@@ -995,6 +996,7 @@ class MainScene extends Phaser.Scene {
       this.input.keyboard?.off('keydown-ONE');
       this.input.keyboard?.off('keydown-TWO');
       this.input.keyboard?.off('keydown-THREE');
+      this.input.keyboard?.off('keydown-FOUR');
       this.waitingForUpgradeChoice = false;
       overlay.destroy();
       this.startLevel(nextLevel);
@@ -1002,28 +1004,32 @@ class MainScene extends Phaser.Scene {
 
     choices.forEach((choice, index) => {
       const x = -270 + index * 180;
-      const glow = this.add.rectangle(x, 38, 168, 126, choice.color, 0.06).setBlendMode(Phaser.BlendModes.ADD);
-      const card = this.add.rectangle(x, 38, 160, 116, 0x11182a, 0.98)
+      const glow = this.add.rectangle(x, 34, 170, 160, choice.color, 0.06).setBlendMode(Phaser.BlendModes.ADD);
+      const card = this.add.rectangle(x, 34, 160, 150, 0x11182a, 0.98)
         .setStrokeStyle(2, choice.color, 0.9)
         .setInteractive({ useHandCursor: true });
-      const topLine = this.add.rectangle(x, -18, 132, 3, choice.color, 0.95).setBlendMode(Phaser.BlendModes.ADD);
-      const numberBadge = this.add.circle(x - 60, -4, 14, choice.color, 0.92);
-      const number = this.add.text(x - 60, -4, `${index + 1}`, { fontFamily: 'monospace', fontSize: '16px', color: '#050714' }).setOrigin(0.5);
-      const cardTitle = this.add.text(x, 24, choice.title, { fontFamily: 'monospace', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5);
-      const description = this.add.text(x, 54, choice.description, { fontFamily: 'monospace', fontSize: '13px', color: '#a9bad1' }).setOrigin(0.5);
+      const topLine = this.add.rectangle(x, -38, 132, 3, choice.color, 0.95).setBlendMode(Phaser.BlendModes.ADD);
+      const icon = this.add.text(x, -10, choice.icon, { fontFamily: 'monospace', fontSize: '32px', color: '#ffffff', stroke: Phaser.Display.Color.IntegerToColor(choice.color).rgba, strokeThickness: 1 }).setOrigin(0.5);
+      const numberBadge = this.add.circle(x - 60, -24, 14, choice.color, 0.92);
+      const number = this.add.text(x - 60, -24, `${index + 1}`, { fontFamily: 'monospace', fontSize: '16px', color: '#050714' }).setOrigin(0.5);
+      const cardTitle = this.add.text(x, 25, choice.title, { fontFamily: 'monospace', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5);
+      const subtitle = this.add.text(x, 47, choice.subtitle.toUpperCase(), { fontFamily: 'monospace', fontSize: '10px', color: Phaser.Display.Color.IntegerToColor(choice.color).rgba }).setOrigin(0.5);
+      const description = this.add.text(x, 70, choice.description, { fontFamily: 'monospace', fontSize: '12px', color: '#a9bad1' }).setOrigin(0.5);
       card.on('pointerdown', () => choose(choice.kind));
       card.on('pointerover', () => {
         card.setFillStyle(0x1c2742, 1);
         glow.setAlpha(0.18);
+        icon.setScale(1.12);
         topLine.setDisplaySize(132, 3);
       });
       card.on('pointerout', () => {
         card.setFillStyle(0x11182a, 0.98);
         glow.setAlpha(0.08);
+        icon.setScale(1);
         topLine.setDisplaySize(132, 3);
       });
       this.tweens.add({ targets: glow, alpha: 0.14, yoyo: true, repeat: -1, duration: 650 + index * 90 });
-      overlay.add([glow, card, topLine, numberBadge, number, cardTitle, description]);
+      overlay.add([glow, card, topLine, icon, numberBadge, number, cardTitle, subtitle, description]);
     });
 
     this.input.keyboard?.once('keydown-ONE', () => choose('speed'));

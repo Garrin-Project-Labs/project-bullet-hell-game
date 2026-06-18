@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="arcade orb enemy">
+  <defs>
+    <filter id="glow" x="-35%" y="-35%" width="170%" height="170%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#c77dff" flood-opacity="0.75"/>
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <radialGradient id="core" cx="36%" cy="30%" r="70%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.28" stop-color="#c77dff"/>
+      <stop offset="1" stop-color="#46206d"/>
+    </radialGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <circle cx="48" cy="48" r="34" fill="url(#core)" stroke="#13091c" stroke-width="5"/>
+    <ellipse cx="48" cy="48" rx="43" ry="14" fill="none" stroke="#7cf7ff" stroke-width="5" opacity="0.82"/>
+    <ellipse cx="48" cy="48" rx="14" ry="43" fill="none" stroke="#ff6bd6" stroke-width="5" opacity="0.75"/>
+    <circle cx="48" cy="48" r="11" fill="#ffffff" opacity="0.86"/>
+    <circle cx="40" cy="39" r="6" fill="#ffffff" opacity="0.58"/>
+    <path d="M20 72c8 8 48 9 58-1" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.35"/>
+  </g>
+</svg>
