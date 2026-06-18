@@ -186,6 +186,7 @@ class MainScene extends Phaser.Scene {
   private leaderboardStatus = 'Local scores only';
   private leaderboardNameEntryActive = false;
   private enemyFireEvent?: Phaser.Time.TimerEvent;
+  private bossLaserActive = false;
   private enemyOverlap?: Phaser.Physics.Arcade.Collider;
   private powerUpOverlap?: Phaser.Physics.Arcade.Collider;
 
@@ -247,6 +248,7 @@ class MainScene extends Phaser.Scene {
     this.spreadChanceUpgrades = 0;
     this.moveSpeedUpgrades = 0;
     this.scoreSubmitted = false;
+    this.bossLaserActive = false;
     this.sharedLeaderboard = [];
     this.leaderboardStatus = 'Loading shared leaderboard...';
     this.leaderboardNameEntryActive = false;
@@ -532,6 +534,10 @@ class MainScene extends Phaser.Scene {
     const base = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
     const speed = level.bulletSpeed + Math.min(25, this.score * 0.35);
 
+    if (this.isFinalBossLevel() && this.wave % 4 === 0) {
+      this.fireFinalBossLaser();
+    }
+
     switch (pattern) {
       case 'ring':
         this.fireRingPattern(level, base, speed);
@@ -601,6 +607,78 @@ class MainScene extends Phaser.Scene {
       const angle = spin + (Math.PI * 2 * i) / arms;
       this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed + 25, i % 2 === 0 ? 0xffd166 : 0xc77dff, 9);
       this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle + Math.PI, speed * 0.78, 0x7cf7ff, 9);
+    }
+  }
+
+  private isFinalBossLevel() {
+    return this.levelIndex === LEVELS.length - 1;
+  }
+
+  private fireFinalBossLaser() {
+    if (!this.enemy || this.bossLaserActive || this.levelTransitioning || this.gameOver || this.victory) return;
+
+    this.bossLaserActive = true;
+    const laserX = Phaser.Math.Clamp(this.player.x, PLAY_X + 46, PLAY_RIGHT - 46);
+    const laserWidth = 56;
+    const laserHeight = HEIGHT - PLAY_TOP - 16;
+    const laserY = PLAY_TOP + laserHeight / 2 + 8;
+
+    const warning = this.add.rectangle(laserX, laserY, laserWidth, laserHeight, 0xff3355, 0.16)
+      .setStrokeStyle(3, 0xfff7a8, 0.95)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(18);
+    const warningCore = this.add.rectangle(laserX, laserY, 8, laserHeight, 0xffffff, 0.45)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(19);
+    const warningText = this.add.text(laserX, PLAY_TOP + 18, 'LASER', {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#fff7a8',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5).setDepth(20);
+
+    this.tweens.add({ targets: warning, alpha: 0.34, yoyo: true, repeat: 3, duration: 110 });
+    this.tweens.add({ targets: warningCore, alpha: 0.9, yoyo: true, repeat: 3, duration: 110 });
+    this.tweens.add({ targets: warningText, y: PLAY_TOP + 8, alpha: 0.35, yoyo: true, repeat: 3, duration: 110 });
+
+    this.time.delayedCall(850, () => {
+      warning.destroy();
+      warningCore.destroy();
+      warningText.destroy();
+      if (this.levelTransitioning || this.gameOver || this.victory) {
+        this.bossLaserActive = false;
+        return;
+      }
+
+      const beam = this.add.rectangle(laserX, laserY, laserWidth, laserHeight, 0xff3355, 0.72)
+        .setStrokeStyle(4, 0xffffff, 0.95)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(18);
+      const core = this.add.rectangle(laserX, laserY, 16, laserHeight, 0xffffff, 0.95)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(19);
+      const sweep = this.add.rectangle(laserX, PLAY_TOP + 12, laserWidth + 12, 22, 0xfff7a8, 0.75)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(20);
+
+      this.tweens.add({ targets: sweep, y: HEIGHT - 18, duration: 260, ease: 'Cubic.easeIn', onComplete: () => sweep.destroy() });
+      this.cameras.main.shake(120, 0.003);
+      this.damagePlayerWithLaser(laserX, laserWidth);
+
+      this.time.delayedCall(320, () => {
+        beam.destroy();
+        core.destroy();
+        this.bossLaserActive = false;
+      });
+    });
+  }
+
+  private damagePlayerWithLaser(laserX: number, laserWidth: number) {
+    if (this.time.now < this.invulnerableUntil || this.gameOver || this.victory) return;
+    const playerHalfWidth = PLAYER_HIT_ELLIPSE_X;
+    if (Math.abs(this.player.x - laserX) <= laserWidth / 2 + playerHalfWidth) {
+      this.damagePlayer();
     }
   }
 
@@ -851,6 +929,10 @@ class MainScene extends Phaser.Scene {
 
   private hitByBullet(bullet: Phaser.GameObjects.Arc) {
     bullet.destroy();
+    this.damagePlayer();
+  }
+
+  private damagePlayer() {
     this.hp--;
     this.invulnerableUntil = this.time.now + 1100;
     this.cameras.main.shake(120, 0.008);
