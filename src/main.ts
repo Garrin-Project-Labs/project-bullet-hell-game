@@ -877,7 +877,6 @@ class MainScene extends Phaser.Scene {
     enemyBody?.setEnable(false);
     defeatedEnemy.setActive(false);
     this.clearProjectiles();
-    this.cameras.main.shake(160, 0.004);
     this.updateHud();
     this.playEnemyExplosion(explosionX, explosionY, LEVELS[defeatedLevel].enemyColor);
 
