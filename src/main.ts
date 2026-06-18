@@ -36,7 +36,7 @@ const LEVEL_FIVE_WALL_ROWS = 13;
 const LEVEL_FIVE_WALL_LANES = 10;
 const LEVEL_SEVEN_INDEX = 6;
 const LEVEL_SEVEN_PHASE_MS = 10000;
-const LEVEL_SEVEN_PHASE_FIRE_MS = 700;
+const LEVEL_SEVEN_PHASE_FIRE_MS = 780;
 const LEVEL_SEVEN_PHASE_BULLET_RADIUS = 23;
 const LEVEL_SEVEN_ORB_COUNT = 6;
 const FINAL_BOSS_INDEX = 9;
@@ -779,7 +779,7 @@ class MainScene extends Phaser.Scene {
   private fireLevelSevenOrbVolley(volley: number) {
     if (!this.enemy) return;
     const count = LEVEL_SEVEN_ORB_COUNT;
-    const spin = volley * 0.29;
+    const spin = Math.PI / 6 + volley * 0.18;
     const speed = 62 + Math.min(14, volley * 0.8);
 
     for (let i = 0; i < count; i++) {
@@ -791,11 +791,13 @@ class MainScene extends Phaser.Scene {
   private fireLevelSevenBigOrbPattern(level: LevelConfig) {
     if (!this.enemy) return;
     const count = 3;
-    const spin = this.wave * level.spin * 1.8;
-    const speed = level.bulletSpeed * 0.48;
+    const spread = 0.72;
+    const sway = Math.sin(this.wave * 0.75) * 0.22;
+    const speed = level.bulletSpeed * 0.55;
 
     for (let i = 0; i < count; i++) {
-      const angle = spin + (Math.PI * 2 * i) / count;
+      const t = count === 1 ? 0.5 : i / (count - 1);
+      const angle = Math.PI / 2 + sway + Phaser.Math.Linear(-spread, spread, t);
       this.spawnEnemyBullet(this.enemy.x, this.enemy.y + 22, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS);
     }
   }
@@ -1002,9 +1004,10 @@ class MainScene extends Phaser.Scene {
     bullet.setStrokeStyle(3, 0xffffff, 0.95);
     bullet.setScale(visibleRadius / BULLET_RADIUS);
     bullet.setBlendMode(Phaser.BlendModes.ADD);
-    bullet.setData('hitRadius', visibleRadius * ENEMY_BULLET_HITBOX_SCALE);
+    const hitRadius = visibleRadius * ENEMY_BULLET_HITBOX_SCALE;
+    bullet.setData('hitRadius', hitRadius);
     const body = bullet.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(visibleRadius * ENEMY_BULLET_HITBOX_SCALE);
+    body.setCircle(hitRadius, BULLET_RADIUS - hitRadius, BULLET_RADIUS - hitRadius);
     body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
     return bullet;
   }
