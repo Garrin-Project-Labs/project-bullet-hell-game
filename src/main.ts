@@ -28,6 +28,9 @@ const POWER_UP_TTL_MS = 3000;
 const POWER_UP_DURATION_MS = 7000;
 const POWER_UP_MIN_GAP_MS = 4000;
 const ATTACK_PATTERN_MS = 5000;
+const LEVEL_FIVE_INDEX = 4;
+const LEVEL_FIVE_WALL_ROWS = 7;
+const LEVEL_FIVE_WALL_LANES = 10;
 const LEADERBOARD_LIMIT = 10;
 // Shared leaderboard endpoint backed by the Google Apps Script web app.
 const SHARED_LEADERBOARD_URL = import.meta.env.VITE_LEADERBOARD_URL || '';
@@ -102,9 +105,9 @@ const LEVELS: LevelConfig[] = [
     background: '#061421',
     enemyColor: 0x4dd7ff,
     enemyHp: 20,
-    fireMs: 605,
-    bulletCount: 10,
-    bulletSpeed: 124,
+    fireMs: 720,
+    bulletCount: 8,
+    bulletSpeed: 108,
     spin: 0.16
   },
   {
@@ -187,6 +190,7 @@ class MainScene extends Phaser.Scene {
   private leaderboardNameEntryActive = false;
   private enemyFireEvent?: Phaser.Time.TimerEvent;
   private bossLaserActive = false;
+  private levelFiveWallActive = false;
   private enemyOverlap?: Phaser.Physics.Arcade.Collider;
   private powerUpOverlap?: Phaser.Physics.Arcade.Collider;
 
@@ -249,6 +253,7 @@ class MainScene extends Phaser.Scene {
     this.moveSpeedUpgrades = 0;
     this.scoreSubmitted = false;
     this.bossLaserActive = false;
+    this.levelFiveWallActive = false;
     this.sharedLeaderboard = [];
     this.leaderboardStatus = 'Loading shared leaderboard...';
     this.leaderboardNameEntryActive = false;
@@ -372,6 +377,7 @@ class MainScene extends Phaser.Scene {
     this.levelStartedAt = this.time.now;
     this.pickEnemyMovement();
     this.enemyInvulnerableUntil = this.time.now + 500;
+    this.levelFiveWallActive = false;
 
     const level = LEVELS[this.levelIndex];
     this.enemyHp = level.enemyHp;
@@ -524,11 +530,16 @@ class MainScene extends Phaser.Scene {
   }
 
   private firePattern() {
-    if (this.gameOver || this.victory) return;
+    if (this.gameOver || this.victory || this.levelFiveWallActive) return;
     this.wave++;
 
     const level = LEVELS[this.levelIndex];
     if (!this.enemy || this.levelTransitioning) return;
+
+    if (this.isLevelFiveBoss() && this.wave % 5 === 0) {
+      this.startLevelFiveWallPhase();
+      return;
+    }
 
     const pattern = this.currentAttackPattern();
     const base = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
@@ -558,6 +569,79 @@ class MainScene extends Phaser.Scene {
     const patterns: AttackPattern[] = ['ring', 'burst', 'heavy', 'spiral'];
     const elapsed = Math.max(0, this.time.now - this.levelStartedAt);
     return patterns[Math.floor(elapsed / ATTACK_PATTERN_MS) % patterns.length];
+  }
+
+  private isLevelFiveBoss() {
+    return this.levelIndex === LEVEL_FIVE_INDEX;
+  }
+
+  private startLevelFiveWallPhase() {
+    if (!this.enemy || this.levelFiveWallActive || this.levelTransitioning || this.gameOver || this.victory) return;
+
+    this.levelFiveWallActive = true;
+    this.enemyInvulnerableUntil = this.time.now + 4200;
+    this.clearProjectiles();
+    this.setEnemyFill(0xb9f6ff);
+    if (this.enemy instanceof Phaser.GameObjects.Shape) {
+      this.enemy.setStrokeStyle(4, 0xffffff, 0.9);
+    }
+
+    const label = this.add.text(PLAY_CENTER, PLAY_TOP + 118, 'AZURE SHIELD WALL', {
+      fontFamily: 'monospace',
+      fontSize: '22px',
+      color: '#b9f6ff',
+      stroke: '#020712',
+      strokeThickness: 5
+    }).setOrigin(0.5).setDepth(24);
+    const hint = this.add.text(PLAY_CENTER, PLAY_TOP + 146, 'regular fire paused — find the gap', {
+      fontFamily: 'monospace',
+      fontSize: '13px',
+      color: '#e8f8ff',
+      stroke: '#020712',
+      strokeThickness: 4
+    }).setOrigin(0.5).setDepth(24);
+
+    this.tweens.add({ targets: [label, hint], alpha: 0.35, yoyo: true, repeat: 4, duration: 240 });
+
+    let gapLane = Phaser.Math.Clamp(
+      Math.floor((this.player.x - PLAY_X) / (GAME_WIDTH / LEVEL_FIVE_WALL_LANES)),
+      1,
+      LEVEL_FIVE_WALL_LANES - 2
+    );
+
+    for (let row = 0; row < LEVEL_FIVE_WALL_ROWS; row++) {
+      this.time.delayedCall(620 + row * 340, () => {
+        if (!this.levelFiveWallActive || this.levelTransitioning || this.gameOver || this.victory) return;
+        gapLane = Phaser.Math.Clamp(gapLane + Phaser.Math.Between(-1, 1), 1, LEVEL_FIVE_WALL_LANES - 2);
+        this.spawnLevelFiveWallRow(row, gapLane);
+      });
+    }
+
+    this.time.delayedCall(620 + LEVEL_FIVE_WALL_ROWS * 340 + 900, () => {
+      label.destroy();
+      hint.destroy();
+      this.levelFiveWallActive = false;
+      this.enemyInvulnerableUntil = this.time.now + 350;
+      this.resetEnemyVisual();
+      this.setEnemyStroke();
+    });
+  }
+
+  private spawnLevelFiveWallRow(row: number, gapLane: number) {
+    const laneWidth = GAME_WIDTH / LEVEL_FIVE_WALL_LANES;
+    const y = PLAY_TOP - 18;
+    const warningY = PLAY_TOP + 28 + row * 4;
+    const gapMarker = this.add.rectangle(PLAY_X + gapLane * laneWidth + laneWidth / 2, warningY, laneWidth - 10, 8, 0x9cff6a, 0.85)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(17);
+    this.tweens.add({ targets: gapMarker, alpha: 0, duration: 420, onComplete: () => gapMarker.destroy() });
+
+    for (let lane = 0; lane < LEVEL_FIVE_WALL_LANES; lane++) {
+      if (lane === gapLane) continue;
+      const x = PLAY_X + lane * laneWidth + laneWidth / 2;
+      const bullet = this.spawnEnemyBullet(x, y, Math.PI / 2, 185 + row * 7, 0x4dd7ff, 13);
+      bullet?.setData('wallBullet', true);
+    }
   }
 
   private fireRingPattern(level: LevelConfig, base: number, speed: number) {
@@ -685,7 +769,7 @@ class MainScene extends Phaser.Scene {
   private spawnEnemyBullet(x: number, y: number, angle: number, speed: number, color: number, radius = BULLET_RADIUS) {
     const visibleRadius = Math.max(MIN_ENEMY_BULLET_RADIUS, radius);
     const bullet = this.bullets.get(x, y, BULLET_RADIUS, color) as Phaser.GameObjects.Arc | null;
-    if (!bullet) return;
+    if (!bullet) return undefined;
     bullet.setActive(true).setVisible(true).setData('grazed', false);
     bullet.setFillStyle(color, 1);
     bullet.setStrokeStyle(3, 0xffffff, 0.95);
@@ -695,6 +779,7 @@ class MainScene extends Phaser.Scene {
     const body = bullet.body as Phaser.Physics.Arcade.Body;
     body.setCircle(visibleRadius);
     body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+    return bullet;
   }
 
   private firePlayerShot(time: number) {
