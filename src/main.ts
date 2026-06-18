@@ -3,7 +3,10 @@ import './style.css';
 
 const GAME_WIDTH = 800;
 const HUD_WIDTH = 220;
-const WIDTH = GAME_WIDTH + HUD_WIDTH;
+const PLAY_X = HUD_WIDTH;
+const PLAY_RIGHT = PLAY_X + GAME_WIDTH;
+const PLAY_CENTER = PLAY_X + GAME_WIDTH / 2;
+const WIDTH = GAME_WIDTH + HUD_WIDTH * 2;
 const HEIGHT = 600;
 const PLAY_TOP = 88;
 const PLAYER_SPEED = 270;
@@ -245,9 +248,9 @@ class MainScene extends Phaser.Scene {
     this.leaderboardNameEntryActive = false;
 
     this.addBackground();
-    this.physics.world.setBounds(0, 0, GAME_WIDTH, HEIGHT);
+    this.physics.world.setBounds(PLAY_X, 0, GAME_WIDTH, HEIGHT);
 
-    this.player = this.add.image(GAME_WIDTH / 2, HEIGHT - 80, 'banana-boss').setScale(0.55);
+    this.player = this.add.image(PLAY_CENTER, HEIGHT - 80, 'banana-boss').setScale(0.55);
     this.physics.add.existing(this.player);
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
     playerBody.setSize(PLAYER_HIT_ELLIPSE_X * 2, PLAYER_HIT_ELLIPSE_Y * 2);
@@ -266,26 +269,35 @@ class MainScene extends Phaser.Scene {
     this.fireKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.input.keyboard!.addCapture([Phaser.Input.Keyboard.KeyCodes.SPACE]);
 
-    this.scoreText = this.add.text(16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' });
-    this.hpText = this.add.text(GAME_WIDTH - 16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(1, 0);
-    this.levelText = this.add.text(16, 40, '', { fontFamily: 'monospace', fontSize: '16px', color: '#c8f7ff' });
-    this.add.rectangle(GAME_WIDTH / 2, 70, GAME_WIDTH - 18, 2, 0x28344f, 0.8);
-    this.add.rectangle(GAME_WIDTH / 2, 30, 560, 26, 0x050714, 0.92).setStrokeStyle(2, 0x7cf7ff, 0.28);
-    this.bossBar = this.add.rectangle(GAME_WIDTH / 2, 30, 548, 16, 0x24111b, 0.95);
-    this.bossBarFill = this.add.rectangle(GAME_WIDTH / 2 - 274, 30, 548, 16, 0xff4d8d, 1).setOrigin(0, 0.5);
-    this.bossNameText = this.add.text(GAME_WIDTH / 2, 45, '', { fontFamily: 'monospace', fontSize: '12px', color: '#ffd6e6' }).setOrigin(0.5, 0);
-    this.powerText = this.add.text(GAME_WIDTH / 2, 12, '', { fontFamily: 'monospace', fontSize: '16px', color: '#fff0a6' }).setOrigin(0.5, 0);
-    this.upgradeText = this.add.text(GAME_WIDTH / 2, HEIGHT - 58, '', { fontFamily: 'monospace', fontSize: '13px', color: '#c8f7ff' }).setOrigin(0.5, 0);
-    this.helpText = this.add.text(16, HEIGHT - 34, 'Move: WASD/Arrows • Shoot: Space • Restart: R', {
+    this.scoreText = this.add.text(18, 28, '', { fontFamily: 'monospace', fontSize: '15px', color: '#e8f8ff' });
+    this.hpText = this.add.text(PLAY_RIGHT - 16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(1, 0);
+    this.levelText = this.add.text(18, 56, '', { fontFamily: 'monospace', fontSize: '15px', color: '#c8f7ff' });
+    this.add.rectangle(PLAY_CENTER, 70, GAME_WIDTH - 18, 2, 0x28344f, 0.8);
+    this.add.rectangle(PLAY_CENTER, 30, 560, 26, 0x050714, 0.92).setStrokeStyle(2, 0x7cf7ff, 0.28);
+    this.bossBar = this.add.rectangle(PLAY_CENTER, 30, 548, 16, 0x24111b, 0.95);
+    this.bossBarFill = this.add.rectangle(PLAY_CENTER - 274, 30, 548, 16, 0xff4d8d, 1).setOrigin(0, 0.5);
+    this.bossNameText = this.add.text(PLAY_CENTER, 45, '', { fontFamily: 'monospace', fontSize: '12px', color: '#ffd6e6' }).setOrigin(0.5, 0);
+    this.powerText = this.add.text(PLAY_CENTER, 12, '', { fontFamily: 'monospace', fontSize: '16px', color: '#fff0a6' }).setOrigin(0.5, 0);
+    this.upgradeText = this.add.text(18, 116, '', { fontFamily: 'monospace', fontSize: '12px', color: '#c8f7ff', wordWrap: { width: HUD_WIDTH - 32 } });
+    this.helpText = this.add.text(18, 210, 'CONTROLS\nMove: WASD/Arrows\nShoot: Space\nRestart: R', {
       fontFamily: 'monospace',
-      fontSize: '15px',
-      color: '#a9bad1'
+      fontSize: '13px',
+      color: '#a9bad1',
+      lineSpacing: 5
     });
 
-    this.miniLeaderboardPanel = this.add.rectangle(GAME_WIDTH + HUD_WIDTH / 2, PLAY_TOP + 84, HUD_WIDTH - 28, 148, 0x050714, 0.82)
+    this.add.rectangle(HUD_WIDTH / 2, 172, HUD_WIDTH - 28, 246, 0x050714, 0.78)
+      .setStrokeStyle(2, 0x7cf7ff, 0.3)
+      .setDepth(19);
+    this.scoreText.setDepth(21);
+    this.levelText.setDepth(21);
+    this.upgradeText.setDepth(21);
+    this.helpText.setDepth(21);
+
+    this.miniLeaderboardPanel = this.add.rectangle(PLAY_RIGHT + HUD_WIDTH / 2, PLAY_TOP + 84, HUD_WIDTH - 28, 148, 0x050714, 0.82)
       .setStrokeStyle(2, 0x7cf7ff, 0.38)
       .setDepth(20);
-    this.miniLeaderboardText = this.add.text(GAME_WIDTH + 18, PLAY_TOP + 24, this.formatMiniLeaderboard(), {
+    this.miniLeaderboardText = this.add.text(PLAY_RIGHT + 18, PLAY_TOP + 24, this.formatMiniLeaderboard(), {
       fontFamily: 'monospace',
       fontSize: '12px',
       color: '#e8f8ff',
@@ -319,15 +331,17 @@ class MainScene extends Phaser.Scene {
   private addBackground() {
     this.cameras.main.setBackgroundColor(LEVELS[0].background);
     for (let i = 0; i < 95; i++) {
-      const x = Phaser.Math.Between(0, GAME_WIDTH);
+      const x = Phaser.Math.Between(PLAY_X, PLAY_RIGHT);
       const y = Phaser.Math.Between(0, HEIGHT);
       const alpha = Phaser.Math.FloatBetween(0.18, 0.75);
       const size = Phaser.Math.FloatBetween(0.7, 2.2);
       this.add.circle(x, y, size, 0xffffff, alpha);
     }
-    this.add.rectangle(GAME_WIDTH / 2, (HEIGHT + PLAY_TOP) / 2, GAME_WIDTH - 18, HEIGHT - PLAY_TOP - 9).setStrokeStyle(2, 0x28344f, 0.8);
-    this.add.rectangle(GAME_WIDTH + HUD_WIDTH / 2, HEIGHT / 2, HUD_WIDTH, HEIGHT, 0x050714, 0.62);
-    this.add.rectangle(GAME_WIDTH + 1, HEIGHT / 2, 2, HEIGHT, 0x7cf7ff, 0.24).setBlendMode(Phaser.BlendModes.ADD);
+    this.add.rectangle(PLAY_CENTER, (HEIGHT + PLAY_TOP) / 2, GAME_WIDTH - 18, HEIGHT - PLAY_TOP - 9).setStrokeStyle(2, 0x28344f, 0.8);
+    this.add.rectangle(HUD_WIDTH / 2, HEIGHT / 2, HUD_WIDTH, HEIGHT, 0x050714, 0.62);
+    this.add.rectangle(PLAY_RIGHT + HUD_WIDTH / 2, HEIGHT / 2, HUD_WIDTH, HEIGHT, 0x050714, 0.62);
+    this.add.rectangle(PLAY_X - 1, HEIGHT / 2, 2, HEIGHT, 0x7cf7ff, 0.24).setBlendMode(Phaser.BlendModes.ADD);
+    this.add.rectangle(PLAY_RIGHT + 1, HEIGHT / 2, 2, HEIGHT, 0x7cf7ff, 0.24).setBlendMode(Phaser.BlendModes.ADD);
   }
 
   private startLevel(index: number) {
@@ -358,15 +372,15 @@ class MainScene extends Phaser.Scene {
 
     const shape = this.levelIndex % 4;
     if (shape === 0) {
-      this.enemy = this.add.triangle(GAME_WIDTH / 2, PLAY_TOP + 28, 0, 34, 26, 0, 52, 34, level.enemyColor, 1);
+      this.enemy = this.add.triangle(PLAY_CENTER, PLAY_TOP + 28, 0, 34, 26, 0, 52, 34, level.enemyColor, 1);
     } else if (shape === 1) {
-      this.enemy = this.add.rectangle(GAME_WIDTH / 2, PLAY_TOP + 28, 50, 50, level.enemyColor, 1).setRotation(Math.PI / 4);
+      this.enemy = this.add.rectangle(PLAY_CENTER, PLAY_TOP + 28, 50, 50, level.enemyColor, 1).setRotation(Math.PI / 4);
     } else if (shape === 2) {
-      this.enemy = this.add.circle(GAME_WIDTH / 2, PLAY_TOP + 28, 28, level.enemyColor, 1);
+      this.enemy = this.add.circle(PLAY_CENTER, PLAY_TOP + 28, 28, level.enemyColor, 1);
     } else if (this.levelIndex === LEVELS.length - 1) {
-      this.enemy = this.add.image(GAME_WIDTH / 2, PLAY_TOP + 36, 'final-boss').setScale(0.92);
+      this.enemy = this.add.image(PLAY_CENTER, PLAY_TOP + 36, 'final-boss').setScale(0.92);
     } else {
-      this.enemy = this.add.star(GAME_WIDTH / 2, PLAY_TOP + 28, 5, 18, 34, level.enemyColor, 1);
+      this.enemy = this.add.star(PLAY_CENTER, PLAY_TOP + 28, 5, 18, 34, level.enemyColor, 1);
     }
 
     this.setEnemyStroke();
@@ -412,7 +426,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private showLevelBanner(level: LevelConfig) {
-    const banner = this.add.text(GAME_WIDTH / 2, HEIGHT / 2 - 110, `LEVEL ${this.levelIndex + 1}: ${level.name}`, {
+    const banner = this.add.text(PLAY_CENTER, HEIGHT / 2 - 110, `LEVEL ${this.levelIndex + 1}: ${level.name}`, {
       fontFamily: 'monospace',
       fontSize: '28px',
       color: '#ffffff',
@@ -457,7 +471,7 @@ class MainScene extends Phaser.Scene {
 
     const t = (time - this.levelStartedAt) / 1000;
     const phase = t + this.enemyMoveSeed;
-    let x = GAME_WIDTH / 2;
+    let x = PLAY_CENTER;
     let y = PLAY_TOP + 28;
 
     switch (this.enemyMovePattern) {
@@ -479,7 +493,7 @@ class MainScene extends Phaser.Scene {
         break;
     }
 
-    this.enemy.x = Phaser.Math.Clamp(x, 70, GAME_WIDTH - 70);
+    this.enemy.x = Phaser.Math.Clamp(x, PLAY_X + 70, PLAY_RIGHT - 70);
     this.enemy.y = Phaser.Math.Clamp(y, PLAY_TOP + 16, PLAY_TOP + 92);
     if (!(this.enemy instanceof Phaser.GameObjects.Image)) {
       this.enemy.rotation += 0.002 + this.levelIndex * 0.001;
@@ -664,7 +678,7 @@ class MainScene extends Phaser.Scene {
     this.playEnemyExplosion(explosionX, explosionY, LEVELS[defeatedLevel].enemyColor);
 
     const message = nextLevel < LEVELS.length ? 'CHOOSE AN UPGRADE TO CONTINUE' : 'FINAL BOSS DEFEATED';
-    const transitionText = this.add.text(GAME_WIDTH / 2, HEIGHT / 2 + 48, message, {
+    const transitionText = this.add.text(PLAY_CENTER, HEIGHT / 2 + 48, message, {
       fontFamily: 'monospace',
       fontSize: '24px',
       color: '#ffffff',
@@ -704,7 +718,7 @@ class MainScene extends Phaser.Scene {
       color: '#a9bad1'
     }).setOrigin(0.5);
 
-    const overlay = this.add.container(GAME_WIDTH / 2, HEIGHT / 2, [panelGlow, panel, title, hint]);
+    const overlay = this.add.container(PLAY_CENTER, HEIGHT / 2, [panelGlow, panel, title, hint]);
     const choices: Array<{ kind: UpgradeKind; title: string; description: string; color: number }> = [
       { kind: 'speed', title: 'Faster Bullets', description: '+ projectile speed', color: 0x7cf7ff },
       { kind: 'size', title: 'Larger Bullets', description: '+ shot size', color: 0xffd166 },
@@ -855,7 +869,7 @@ class MainScene extends Phaser.Scene {
     const kind = Phaser.Utils.Array.GetRandom(kinds);
     const colors: Record<PowerUpKind, number> = { big: 0xffd166, rapid: 0x7cf7ff, spread: 0xc77dff };
     const powerUp = this.powerUps.get(
-      Phaser.Math.Clamp(x + Phaser.Math.Between(-120, 120), 70, GAME_WIDTH - 70),
+      Phaser.Math.Clamp(x + Phaser.Math.Between(-120, 120), PLAY_X + 70, PLAY_RIGHT - 70),
       Phaser.Math.Clamp(y + Phaser.Math.Between(70, 240), 110, HEIGHT - 120),
       12,
       colors[kind]
@@ -961,7 +975,7 @@ class MainScene extends Phaser.Scene {
   private cleanupOffscreen() {
     const kill = (obj: Phaser.GameObjects.GameObject) => {
       const item = obj as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject;
-      if (item.x < -60 || item.x > GAME_WIDTH + 60 || item.y < -80 || item.y > HEIGHT + 80) obj.destroy();
+      if (item.x < -60 || item.x > PLAY_RIGHT + 60 || item.y < -80 || item.y > HEIGHT + 80) obj.destroy();
     };
     this.bullets.getChildren().forEach(kill);
     this.playerShots.getChildren().forEach(kill);
@@ -1053,7 +1067,7 @@ class MainScene extends Phaser.Scene {
       align: 'left'
     }).setOrigin(0.5, 0);
 
-    this.overlay = this.add.container(GAME_WIDTH / 2, HEIGHT / 2, [panel, title, stats, prompt, nameText, saveHint, statusText, leaderboardText]);
+    this.overlay = this.add.container(PLAY_CENTER, HEIGHT / 2, [panel, title, stats, prompt, nameText, saveHint, statusText, leaderboardText]);
     this.leaderboardNameEntryActive = true;
 
     let playerName = '';
