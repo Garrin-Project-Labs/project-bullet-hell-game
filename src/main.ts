@@ -1334,40 +1334,41 @@ class MainScene extends Phaser.Scene {
 
   private showLeaderboardOverlay(titleText: string, titleColor: string) {
     const qualifies = this.scoreQualifiesForLeaderboard();
-    const panel = this.add.rectangle(0, 0, 600, 390, 0x050714, 0.94).setStrokeStyle(2, 0x7cf7ff, 0.85);
-    const title = this.add.text(0, -168, titleText, { fontFamily: 'monospace', fontSize: '34px', color: titleColor }).setOrigin(0.5);
-    const stats = this.add.text(0, -124, `Score: ${this.score}   Level: ${this.leaderboardLevel()}   Grazes: ${this.grazes}`, {
+    const panel = this.add.rectangle(0, 0, 600, 440, 0x050714, 0.94).setStrokeStyle(2, 0x7cf7ff, 0.85);
+    const title = this.add.text(0, -192, titleText, { fontFamily: 'monospace', fontSize: '34px', color: titleColor }).setOrigin(0.5);
+    const stats = this.add.text(0, -148, `Score: ${this.score}   Level: ${this.leaderboardLevel()}   Grazes: ${this.grazes}`, {
       fontFamily: 'monospace',
       fontSize: '16px',
       color: '#e8f8ff'
     }).setOrigin(0.5);
-    const prompt = this.add.text(0, -92, qualifies ? 'NEW TOP 10! Enter your name:' : 'Not top 10 yet — keep dodging.', {
+    const prompt = this.add.text(0, -118, qualifies ? 'NEW TOP 10! Enter your name:' : 'Not top 10 yet — keep dodging.', {
       fontFamily: 'monospace',
       fontSize: '14px',
       color: qualifies ? '#fff0a6' : '#a9bad1'
     }).setOrigin(0.5);
-    const nameText = this.add.text(0, -64, '', {
+    const nameText = this.add.text(0, -91, '', {
       fontFamily: 'monospace',
       fontSize: '22px',
       color: '#fff0a6',
       backgroundColor: '#11182a',
       padding: { x: 12, y: 6 }
     }).setOrigin(0.5);
-    const saveHint = this.add.text(0, -26, qualifies ? `Edit name (${LEADERBOARD_NAME_LIMIT} max), Enter to save • Esc to skip` : 'Press R to restart', {
+    const saveHint = this.add.text(0, -51, qualifies ? `Edit name (${LEADERBOARD_NAME_LIMIT} max), Enter to save • Esc to skip` : 'Press R to restart', {
       fontFamily: 'monospace',
       fontSize: '13px',
       color: '#c8f7ff'
     }).setOrigin(0.5);
-    const statusText = this.add.text(0, 8, this.leaderboardStatus, {
+    const statusText = this.add.text(0, -18, this.leaderboardStatus, {
       fontFamily: 'monospace',
       fontSize: '12px',
       color: '#a9bad1'
     }).setOrigin(0.5);
-    const leaderboardText = this.add.text(0, 34, this.formatLeaderboard(), {
+    const leaderboardText = this.add.text(0, 8, this.formatLeaderboard(), {
       fontFamily: 'monospace',
-      fontSize: '14px',
+      fontSize: '13px',
       color: '#e8f8ff',
-      align: 'left'
+      align: 'left',
+      lineSpacing: -2
     }).setOrigin(0.5, 0);
 
     if (!qualifies) {
