@@ -33,6 +33,9 @@ const ATTACK_PATTERN_MS = 5000;
 const LEVEL_FIVE_INDEX = 4;
 const LEVEL_FIVE_WALL_ROWS = 13;
 const LEVEL_FIVE_WALL_LANES = 10;
+const FINAL_BOSS_INDEX = 9;
+const ENDLESS_INDEX = 10;
+const STORY_LEVEL_COUNT = 10;
 const LEADERBOARD_LIMIT = 10;
 const LEADERBOARD_NAME_LIMIT = 8;
 const LEADERBOARD_NAME_STORAGE_KEY = 'bulletHellLeaderboardName';
@@ -163,6 +166,16 @@ const LEVELS: LevelConfig[] = [
     bulletCount: 16,
     bulletSpeed: 201,
     spin: 0.22
+  },
+  {
+    name: 'Endless Peel',
+    background: '#050915',
+    enemyColor: 0x9cff6a,
+    enemyHp: 64,
+    fireMs: 420,
+    bulletCount: 15,
+    bulletSpeed: 190,
+    spin: 0.23
   }
 ]
 
@@ -207,6 +220,7 @@ class MainScene extends Phaser.Scene {
   private wave = 0;
   private levelIndex = 0;
   private enemyHp = 0;
+  private enemyMaxHp = 0;
   private invulnerableUntil = 0;
   private lastPlayerFire = 0;
   private gameOver = false;
@@ -217,6 +231,8 @@ class MainScene extends Phaser.Scene {
   private activePowerUp?: PowerUpKind;
   private powerUpUntil = 0;
   private levelStartedAt = 0;
+  private endlessStartedAt = 0;
+  private endlessWave = 0;
   private lastPowerUpSpawn = -POWER_UP_MIN_GAP_MS;
   private enemyMovePattern: EnemyMovePattern = 'sway';
   private enemyMoveSeed = 0;
@@ -241,6 +257,7 @@ class MainScene extends Phaser.Scene {
     this.wave = 0;
     this.levelIndex = 0;
     this.enemyHp = 0;
+    this.enemyMaxHp = 0;
     this.invulnerableUntil = 0;
     this.lastPlayerFire = 0;
     this.gameOver = false;
@@ -253,6 +270,8 @@ class MainScene extends Phaser.Scene {
     this.immunityRing?.destroy();
     this.immunityRing = undefined;
     this.levelStartedAt = 0;
+    this.endlessStartedAt = 0;
+    this.endlessWave = 0;
     this.lastPowerUpSpawn = -POWER_UP_MIN_GAP_MS;
     this.enemyMovePattern = 'sway';
     this.enemyMoveSeed = 0;
@@ -386,13 +405,15 @@ class MainScene extends Phaser.Scene {
     this.levelTransitioning = false;
     this.waitingForUpgradeChoice = false;
     this.levelStartedAt = this.time.now;
+    if (this.isEndlessLevel() && this.endlessStartedAt === 0) this.endlessStartedAt = this.time.now;
     this.pickEnemyMovement();
     this.enemyInvulnerableUntil = this.time.now + 500;
     this.levelFiveWallActive = false;
     this.levelFiveWallUsed = false;
 
-    const level = LEVELS[this.levelIndex];
+    const level = this.currentLevelConfig();
     this.enemyHp = level.enemyHp;
+    this.enemyMaxHp = level.enemyHp;
     this.createEnemyForLevel(level);
     this.cameras.main.setBackgroundColor(level.background);
     this.clearProjectiles();
@@ -409,14 +430,16 @@ class MainScene extends Phaser.Scene {
     this.enemy?.destroy();
 
     const shape = this.levelIndex % 4;
-    if (shape === 0) {
+    if (this.isFinalBossLevel()) {
+      this.enemy = this.add.image(PLAY_CENTER, PLAY_TOP + 36, 'final-boss').setScale(0.92);
+    } else if (this.isEndlessLevel()) {
+      this.enemy = this.add.star(PLAY_CENTER, PLAY_TOP + 30, 7, 18, 38, level.enemyColor, 1);
+    } else if (shape === 0) {
       this.enemy = this.add.triangle(PLAY_CENTER, PLAY_TOP + 28, 0, 34, 26, 0, 52, 34, level.enemyColor, 1);
     } else if (shape === 1) {
       this.enemy = this.add.rectangle(PLAY_CENTER, PLAY_TOP + 28, 50, 50, level.enemyColor, 1).setRotation(Math.PI / 4);
     } else if (shape === 2) {
       this.enemy = this.add.circle(PLAY_CENTER, PLAY_TOP + 28, 28, level.enemyColor, 1);
-    } else if (this.levelIndex === LEVELS.length - 1) {
-      this.enemy = this.add.image(PLAY_CENTER, PLAY_TOP + 36, 'final-boss').setScale(0.92);
     } else {
       this.enemy = this.add.star(PLAY_CENTER, PLAY_TOP + 28, 5, 18, 34, level.enemyColor, 1);
     }
@@ -457,14 +480,14 @@ class MainScene extends Phaser.Scene {
   private resetEnemyVisual() {
     if (!this.enemy) return;
     if (this.enemy instanceof Phaser.GameObjects.Shape) {
-      this.enemy.setFillStyle(LEVELS[this.levelIndex].enemyColor, 1);
+      this.enemy.setFillStyle(this.currentLevelConfig().enemyColor, 1);
     } else {
       this.enemy.clearTint();
     }
   }
 
   private showLevelBanner(level: LevelConfig) {
-    const banner = this.add.text(PLAY_CENTER, HEIGHT / 2 - 110, `LEVEL ${this.levelIndex + 1}: ${level.name}`, {
+    const banner = this.add.text(PLAY_CENTER, HEIGHT / 2 - 110, this.isEndlessLevel() ? `HIDDEN LEVEL 11: ${level.name}` : `LEVEL ${this.levelIndex + 1}: ${level.name}`, {
       fontFamily: 'monospace',
       fontSize: '28px',
       color: '#ffffff',
@@ -506,7 +529,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private moveEnemy(time: number) {
-    const level = LEVELS[this.levelIndex];
+    const level = this.currentLevelConfig();
     if (!this.enemy) return;
 
     const t = (time - this.levelStartedAt) / 1000;
@@ -542,11 +565,39 @@ class MainScene extends Phaser.Scene {
     (this.enemy.body as Phaser.Physics.Arcade.Body).updateFromGameObject();
   }
 
+  private isEndlessLevel() {
+    return this.levelIndex === ENDLESS_INDEX;
+  }
+
+  private currentLevelConfig(): LevelConfig {
+    const base = LEVELS[this.levelIndex] ?? LEVELS[LEVELS.length - 1];
+    if (!this.isEndlessLevel()) return base;
+
+    const elapsedMinutes = this.endlessStartedAt > 0 ? Math.max(0, (this.time.now - this.endlessStartedAt) / 60000) : 0;
+    const pressure = this.endlessWave + elapsedMinutes * 1.5;
+    return {
+      ...base,
+      enemyHp: Math.round(base.enemyHp + pressure * 9),
+      fireMs: Math.max(245, Math.round(base.fireMs - pressure * 14)),
+      bulletCount: Math.min(34, Math.round(base.bulletCount + pressure)),
+      bulletSpeed: base.bulletSpeed + pressure * 8,
+      spin: base.spin + pressure * 0.008
+    };
+  }
+
+  private levelProgressLabel() {
+    return this.isEndlessLevel() ? `Level 11 ∞\nWave ${this.endlessWave + 1}` : `Level ${this.levelIndex + 1}/${STORY_LEVEL_COUNT}`;
+  }
+
+  private leaderboardLevel() {
+    return this.isEndlessLevel() ? ENDLESS_INDEX + 1 : this.levelIndex + 1;
+  }
+
   private firePattern() {
     if (this.gameOver || this.victory || this.levelFiveWallActive) return;
     this.wave++;
 
-    const level = LEVELS[this.levelIndex];
+    const level = this.currentLevelConfig();
     if (!this.enemy || this.levelTransitioning) return;
 
     const pattern = this.currentAttackPattern();
@@ -705,7 +756,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private isFinalBossLevel() {
-    return this.levelIndex === LEVELS.length - 1;
+    return this.levelIndex === FINAL_BOSS_INDEX;
   }
 
   private fireFinalBossLaser() {
@@ -862,12 +913,19 @@ class MainScene extends Phaser.Scene {
     if (this.levelTransitioning || !this.enemy) return;
     this.levelTransitioning = true;
     const defeatedLevel = this.levelIndex;
-    const nextLevel = defeatedLevel + 1;
+    const defeatedEndless = this.isEndlessLevel();
+    const nextLevel = defeatedEndless ? ENDLESS_INDEX : defeatedLevel + 1;
     const defeatedEnemy = this.enemy;
     const explosionX = defeatedEnemy.x;
     const explosionY = defeatedEnemy.y;
+    const defeatedColor = this.currentLevelConfig().enemyColor;
 
-    this.score += 10 * (defeatedLevel + 1);
+    if (defeatedEndless) {
+      this.endlessWave++;
+      this.score += 35 + this.endlessWave * 5;
+    } else {
+      this.score += 10 * (defeatedLevel + 1);
+    }
     this.enemyHp = 0;
     this.enemyFireEvent?.remove(false);
     this.enemyOverlap?.destroy();
@@ -878,9 +936,13 @@ class MainScene extends Phaser.Scene {
     defeatedEnemy.setActive(false);
     this.clearProjectiles();
     this.updateHud();
-    this.playEnemyExplosion(explosionX, explosionY, LEVELS[defeatedLevel].enemyColor);
+    this.playEnemyExplosion(explosionX, explosionY, defeatedColor);
 
-    const message = nextLevel < LEVELS.length ? 'CHOOSE AN UPGRADE TO CONTINUE' : 'FINAL BOSS DEFEATED';
+    const message = defeatedEndless
+      ? `ENDLESS WAVE ${this.endlessWave} CLEARED`
+      : nextLevel === ENDLESS_INDEX
+        ? 'HIDDEN ENDLESS MODE UNLOCKED'
+        : 'CHOOSE AN UPGRADE TO CONTINUE';
     const transitionText = this.add.text(PLAY_CENTER, HEIGHT / 2 + 48, message, {
       fontFamily: 'monospace',
       fontSize: '24px',
@@ -894,11 +956,7 @@ class MainScene extends Phaser.Scene {
     this.time.delayedCall(750, () => {
       transitionText.destroy();
       defeatedEnemy.destroy();
-      if (nextLevel < LEVELS.length) {
-        this.showUpgradeChoices(nextLevel);
-      } else {
-        this.endVictory();
-      }
+      this.showUpgradeChoices(nextLevel);
     });
   }
 
@@ -915,7 +973,7 @@ class MainScene extends Phaser.Scene {
       stroke: '#7cf7ff',
       strokeThickness: 1
     }).setOrigin(0.5);
-    const hint = this.add.text(0, -66, 'Click a card or press 1 / 2 / 3', {
+    const hint = this.add.text(0, -66, 'Click a card or press 1 / 2 / 3 / 4', {
       fontFamily: 'monospace',
       fontSize: '14px',
       color: '#a9bad1'
@@ -1232,10 +1290,10 @@ class MainScene extends Phaser.Scene {
   }
 
   private updateHud() {
-    const level = LEVELS[this.levelIndex];
+    const level = this.currentLevelConfig();
     this.scoreText?.setText(`SCORE ${this.score}\nGRAZES ${this.grazes}`);
     this.hpText?.setText(`HP ${'♥'.repeat(Math.max(0, this.hp))}`);
-    this.levelText?.setText(`Level ${this.levelIndex + 1}/${LEVELS.length}`);
+    this.levelText?.setText(this.levelProgressLabel());
     this.updateBossHealthBar(level);
     this.updatePowerUpHud();
     const spreadPct = Math.round(Math.min(0.45, this.spreadChanceUpgrades * SPREAD_CHANCE_UPGRADE) * 100);
@@ -1243,10 +1301,10 @@ class MainScene extends Phaser.Scene {
   }
 
   private updateBossHealthBar(level: LevelConfig) {
-    const ratio = Phaser.Math.Clamp(this.enemyHp / level.enemyHp, 0, 1);
+    const ratio = Phaser.Math.Clamp(this.enemyHp / Math.max(1, this.enemyMaxHp), 0, 1);
     this.bossBarFill?.setDisplaySize(548 * ratio, 16);
     this.bossBarFill?.setFillStyle(level.enemyColor, 1);
-    this.bossNameText?.setText(`${level.name}`);
+    this.bossNameText?.setText(this.isEndlessLevel() ? `${level.name} • Wave ${this.endlessWave + 1}` : `${level.name}`);
     this.bossBar?.setVisible(!this.victory);
     this.bossBarFill?.setVisible(!this.victory);
     this.bossNameText?.setVisible(!this.victory);
@@ -1272,7 +1330,7 @@ class MainScene extends Phaser.Scene {
     const qualifies = this.scoreQualifiesForLeaderboard();
     const panel = this.add.rectangle(0, 0, 600, 390, 0x050714, 0.94).setStrokeStyle(2, 0x7cf7ff, 0.85);
     const title = this.add.text(0, -168, titleText, { fontFamily: 'monospace', fontSize: '34px', color: titleColor }).setOrigin(0.5);
-    const stats = this.add.text(0, -124, `Score: ${this.score}   Level: ${this.levelIndex + 1}/${LEVELS.length}   Grazes: ${this.grazes}`, {
+    const stats = this.add.text(0, -124, `Score: ${this.score}   Level: ${this.leaderboardLevel()}   Grazes: ${this.grazes}`, {
       fontFamily: 'monospace',
       fontSize: '16px',
       color: '#e8f8ff'
@@ -1392,7 +1450,7 @@ class MainScene extends Phaser.Scene {
 
     const cutoff = entries[LEADERBOARD_LIMIT - 1];
     if (this.score !== cutoff.score) return this.score > cutoff.score;
-    if (this.levelIndex + 1 !== cutoff.level) return this.levelIndex + 1 > cutoff.level;
+    if (this.leaderboardLevel() !== cutoff.level) return this.leaderboardLevel() > cutoff.level;
     return this.grazes > cutoff.grazes;
   }
 
@@ -1445,7 +1503,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private sendSharedScore(name: string) {
-    const payload = { name, score: this.score, level: this.levelIndex + 1, grazes: this.grazes };
+    const payload = { name, score: this.score, level: this.leaderboardLevel(), grazes: this.grazes };
     if (SHARED_LEADERBOARD_URL.includes('script.google.com')) {
       const url = new URL(SHARED_LEADERBOARD_URL);
       url.searchParams.set('action', 'submit');
