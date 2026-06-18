@@ -33,6 +33,10 @@ const ATTACK_PATTERN_MS = 5000;
 const LEVEL_FIVE_INDEX = 4;
 const LEVEL_FIVE_WALL_ROWS = 13;
 const LEVEL_FIVE_WALL_LANES = 10;
+const LEVEL_SEVEN_INDEX = 6;
+const LEVEL_SEVEN_PHASE_MS = 10000;
+const LEVEL_SEVEN_PHASE_FIRE_MS = 560;
+const LEVEL_SEVEN_PHASE_BULLET_RADIUS = 23;
 const FINAL_BOSS_INDEX = 9;
 const ENDLESS_INDEX = 10;
 const STORY_LEVEL_COUNT = 10;
@@ -210,6 +214,9 @@ class MainScene extends Phaser.Scene {
   private bossLaserActive = false;
   private levelFiveWallActive = false;
   private levelFiveWallUsed = false;
+  private levelSevenOrbPhaseActive = false;
+  private levelSevenOrbPhase75Used = false;
+  private levelSevenOrbPhase25Used = false;
   private enemyOverlap?: Phaser.Physics.Arcade.Collider;
   private powerUpOverlap?: Phaser.Physics.Arcade.Collider;
   private immunityRing?: Phaser.GameObjects.Arc;
@@ -287,6 +294,9 @@ class MainScene extends Phaser.Scene {
     this.bossLaserActive = false;
     this.levelFiveWallActive = false;
     this.levelFiveWallUsed = false;
+    this.levelSevenOrbPhaseActive = false;
+    this.levelSevenOrbPhase75Used = false;
+    this.levelSevenOrbPhase25Used = false;
     this.sharedLeaderboard = [];
     this.leaderboardStatus = 'Loading shared leaderboard...';
     this.leaderboardNameEntryActive = false;
@@ -414,6 +424,9 @@ class MainScene extends Phaser.Scene {
     this.enemyInvulnerableUntil = this.time.now + 500;
     this.levelFiveWallActive = false;
     this.levelFiveWallUsed = false;
+    this.levelSevenOrbPhaseActive = false;
+    this.levelSevenOrbPhase75Used = false;
+    this.levelSevenOrbPhase25Used = false;
 
     const level = this.currentLevelConfig();
     this.enemyHp = level.enemyHp;
@@ -562,6 +575,10 @@ class MainScene extends Phaser.Scene {
     if (!(this.enemy instanceof Phaser.GameObjects.Image)) {
       this.enemy.rotation += 0.002 + this.levelIndex * 0.001;
     }
+    if (this.levelSevenOrbPhaseActive) {
+      this.enemy.x = PLAY_CENTER;
+      this.enemy.y = HEIGHT / 2;
+    }
     this.setEnemyFill(level.enemyColor);
     (this.enemy.body as Phaser.Physics.Arcade.Body).updateFromGameObject();
   }
@@ -595,7 +612,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private firePattern() {
-    if (this.gameOver || this.victory || this.levelFiveWallActive) return;
+    if (this.gameOver || this.victory || this.levelFiveWallActive || this.levelSevenOrbPhaseActive) return;
     this.wave++;
 
     const level = this.currentLevelConfig();
@@ -633,6 +650,135 @@ class MainScene extends Phaser.Scene {
 
   private isLevelFiveBoss() {
     return this.levelIndex === LEVEL_FIVE_INDEX;
+  }
+
+  private isLevelSevenBoss() {
+    return this.levelIndex === LEVEL_SEVEN_INDEX;
+  }
+
+  private shouldTriggerLevelSevenOrbPhase() {
+    if (!this.isLevelSevenBoss() || this.levelSevenOrbPhaseActive || this.levelTransitioning) return false;
+    const hpRatio = this.enemyHp / Math.max(1, this.enemyMaxHp);
+
+    if (!this.levelSevenOrbPhase75Used && hpRatio <= 0.75) {
+      this.levelSevenOrbPhase75Used = true;
+      return true;
+    }
+
+    if (!this.levelSevenOrbPhase25Used && hpRatio <= 0.25) {
+      this.levelSevenOrbPhase25Used = true;
+      return true;
+    }
+
+    return false;
+  }
+
+  private startLevelSevenOrbPhase() {
+    if (!this.enemy || this.levelSevenOrbPhaseActive || this.levelTransitioning || this.gameOver || this.victory) return;
+
+    this.levelSevenOrbPhaseActive = true;
+    this.enemyInvulnerableUntil = this.time.now + LEVEL_SEVEN_PHASE_MS + 450;
+    this.clearProjectiles();
+    this.resetEnemyVisual();
+
+    const enemyBody = this.enemy.body as Phaser.Physics.Arcade.Body;
+    enemyBody.setVelocity(0, 0);
+    this.tweens.killTweensOf(this.enemy);
+    this.tweens.add({
+      targets: this.enemy,
+      x: PLAY_CENTER,
+      y: HEIGHT / 2,
+      scaleX: 1.12,
+      scaleY: 1.12,
+      duration: 420,
+      ease: 'Cubic.easeOut',
+      onUpdate: () => enemyBody.updateFromGameObject()
+    });
+
+    const shield = this.add.circle(PLAY_CENTER, HEIGHT / 2, 56, 0x7cf7ff, 0)
+      .setStrokeStyle(4, 0x7cf7ff, 0.85)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(17);
+    const label = this.add.text(PLAY_CENTER, HEIGHT / 2 - 94, 'SOLAR ORBIT IMMUNITY', {
+      fontFamily: 'monospace',
+      fontSize: '22px',
+      color: '#fff0a6',
+      stroke: '#020712',
+      strokeThickness: 5
+    }).setOrigin(0.5).setDepth(24);
+    const hint = this.add.text(PLAY_CENTER, HEIGHT / 2 - 66, '10 seconds — dodge the slow 360° orbs', {
+      fontFamily: 'monospace',
+      fontSize: '13px',
+      color: '#e8f8ff',
+      stroke: '#020712',
+      strokeThickness: 4
+    }).setOrigin(0.5).setDepth(24);
+    const timerText = this.add.text(PLAY_CENTER, HEIGHT / 2 + 76, '10.0', {
+      fontFamily: 'monospace',
+      fontSize: '18px',
+      color: '#7cf7ff',
+      stroke: '#020712',
+      strokeThickness: 4
+    }).setOrigin(0.5).setDepth(24);
+
+    this.tweens.add({ targets: shield, scale: 1.32, alpha: 0.22, yoyo: true, repeat: -1, duration: 520 });
+    this.tweens.add({ targets: [label, hint], alpha: 0.35, yoyo: true, repeat: 5, duration: 240 });
+
+    const start = this.time.now;
+    const timerEvent = this.time.addEvent({
+      delay: 100,
+      loop: true,
+      callback: () => {
+        if (!this.levelSevenOrbPhaseActive || this.gameOver || this.victory || this.levelTransitioning) {
+          timerEvent.remove(false);
+          return;
+        }
+        const remaining = Math.max(0, LEVEL_SEVEN_PHASE_MS - (this.time.now - start));
+        timerText.setText((remaining / 1000).toFixed(1));
+      }
+    });
+
+    let volley = 0;
+    const fireEvent = this.time.addEvent({
+      delay: LEVEL_SEVEN_PHASE_FIRE_MS,
+      loop: true,
+      callback: () => {
+        if (!this.levelSevenOrbPhaseActive || this.gameOver || this.victory || this.levelTransitioning) {
+          fireEvent.remove(false);
+          return;
+        }
+        volley++;
+        this.fireLevelSevenOrbVolley(volley);
+      }
+    });
+
+    this.time.delayedCall(360, () => this.fireLevelSevenOrbVolley(0));
+    this.time.delayedCall(LEVEL_SEVEN_PHASE_MS, () => {
+      timerEvent.remove(false);
+      fireEvent.remove(false);
+      shield.destroy();
+      label.destroy();
+      hint.destroy();
+      timerText.destroy();
+      this.levelSevenOrbPhaseActive = false;
+      this.enemyInvulnerableUntil = this.time.now + 350;
+      if (this.enemy && !this.gameOver && !this.victory && !this.levelTransitioning) {
+        this.tweens.add({ targets: this.enemy, scaleX: 0.94, scaleY: 0.94, duration: 180, ease: 'Cubic.easeOut' });
+        this.resetEnemyVisual();
+      }
+    });
+  }
+
+  private fireLevelSevenOrbVolley(volley: number) {
+    if (!this.enemy) return;
+    const count = 8;
+    const spin = volley * 0.29;
+    const speed = 74 + Math.min(22, volley * 1.2);
+
+    for (let i = 0; i < count; i++) {
+      const angle = spin + (Math.PI * 2 * i) / count;
+      this.spawnEnemyBullet(this.enemy.x, this.enemy.y, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS);
+    }
   }
 
   private startLevelFiveWallPhase() {
@@ -902,6 +1048,10 @@ class MainScene extends Phaser.Scene {
 
     if (this.shouldTriggerLevelFiveWall()) {
       this.startLevelFiveWallPhase();
+    }
+
+    if (this.shouldTriggerLevelSevenOrbPhase()) {
+      this.startLevelSevenOrbPhase();
     }
   }
 
