@@ -32,6 +32,8 @@ const LEVEL_FIVE_INDEX = 4;
 const LEVEL_FIVE_WALL_ROWS = 7;
 const LEVEL_FIVE_WALL_LANES = 10;
 const LEADERBOARD_LIMIT = 10;
+const LEADERBOARD_NAME_LIMIT = 8;
+const LEADERBOARD_NAME_STORAGE_KEY = 'bulletHellLeaderboardName';
 // Shared leaderboard endpoint backed by the Google Apps Script web app.
 const SHARED_LEADERBOARD_URL = import.meta.env.VITE_LEADERBOARD_URL || '';
 
@@ -188,6 +190,7 @@ class MainScene extends Phaser.Scene {
   private sharedLeaderboard: LeaderboardEntry[] = [];
   private leaderboardStatus = 'Local scores only';
   private leaderboardNameEntryActive = false;
+  private lastLeaderboardName = 'BANANA';
   private enemyFireEvent?: Phaser.Time.TimerEvent;
   private bossLaserActive = false;
   private levelFiveWallActive = false;
@@ -1240,7 +1243,7 @@ class MainScene extends Phaser.Scene {
       backgroundColor: '#11182a',
       padding: { x: 12, y: 6 }
     }).setOrigin(0.5);
-    const saveHint = this.add.text(0, -26, qualifies ? 'Type name, Enter to save • Esc to skip' : 'Press R to restart', {
+    const saveHint = this.add.text(0, -26, qualifies ? `Edit name (${LEADERBOARD_NAME_LIMIT} max), Enter to save • Esc to skip` : 'Press R to restart', {
       fontFamily: 'monospace',
       fontSize: '13px',
       color: '#c8f7ff'
@@ -1266,7 +1269,7 @@ class MainScene extends Phaser.Scene {
 
     if (!qualifies) return;
 
-    let playerName = '';
+    let playerName = this.lastLeaderboardName.slice(0, LEADERBOARD_NAME_LIMIT);
     const refreshName = () => nameText.setText(playerName || '_');
     refreshName();
 
@@ -1279,7 +1282,9 @@ class MainScene extends Phaser.Scene {
 
     const submitScore = () => {
       if (this.scoreSubmitted) return;
-      const safeName = (playerName.trim() || 'BANANA').slice(0, 12).toUpperCase();
+      const safeName = (playerName.trim() || 'BANANA').slice(0, LEADERBOARD_NAME_LIMIT).toUpperCase();
+      this.lastLeaderboardName = safeName;
+      this.saveLeaderboardName(safeName);
       this.scoreSubmitted = true;
       finishNameEntry(`Saved as ${safeName}!`);
       void this.submitSharedScore(safeName, statusText, leaderboardText);
@@ -1300,11 +1305,30 @@ class MainScene extends Phaser.Scene {
         refreshName();
         return;
       }
-      if (event.key.length === 1 && /^[a-zA-Z0-9 _-]$/.test(event.key) && playerName.length < 12) {
+      if (event.key.length === 1 && /^[a-zA-Z0-9 _-]$/.test(event.key) && playerName.length < LEADERBOARD_NAME_LIMIT) {
         playerName += event.key;
         refreshName();
       }
     });
+  }
+
+  private loadSavedLeaderboardName() {
+    try {
+      return (window.localStorage.getItem(LEADERBOARD_NAME_STORAGE_KEY) || 'BANANA')
+        .replace(/[^a-zA-Z0-9 _-]/g, '')
+        .slice(0, LEADERBOARD_NAME_LIMIT)
+        .toUpperCase() || 'BANANA';
+    } catch {
+      return this.lastLeaderboardName;
+    }
+  }
+
+  private saveLeaderboardName(name: string) {
+    try {
+      window.localStorage.setItem(LEADERBOARD_NAME_STORAGE_KEY, name);
+    } catch {
+      // Name memory is only a convenience; gameplay should keep flowing if storage is blocked.
+    }
   }
 
   private scoreQualifiesForLeaderboard() {
