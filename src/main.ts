@@ -29,7 +29,7 @@ const POWER_UP_DURATION_MS = 7000;
 const POWER_UP_MIN_GAP_MS = 4000;
 const ATTACK_PATTERN_MS = 5000;
 const LEVEL_FIVE_INDEX = 4;
-const LEVEL_FIVE_WALL_ROWS = 7;
+const LEVEL_FIVE_WALL_ROWS = 9;
 const LEVEL_FIVE_WALL_LANES = 10;
 const LEADERBOARD_LIMIT = 10;
 const LEADERBOARD_NAME_LIMIT = 8;
@@ -194,6 +194,7 @@ class MainScene extends Phaser.Scene {
   private enemyFireEvent?: Phaser.Time.TimerEvent;
   private bossLaserActive = false;
   private levelFiveWallActive = false;
+  private levelFiveWallUsed = false;
   private enemyOverlap?: Phaser.Physics.Arcade.Collider;
   private powerUpOverlap?: Phaser.Physics.Arcade.Collider;
 
@@ -257,6 +258,7 @@ class MainScene extends Phaser.Scene {
     this.scoreSubmitted = false;
     this.bossLaserActive = false;
     this.levelFiveWallActive = false;
+    this.levelFiveWallUsed = false;
     this.sharedLeaderboard = [];
     this.leaderboardStatus = 'Loading shared leaderboard...';
     this.leaderboardNameEntryActive = false;
@@ -382,6 +384,7 @@ class MainScene extends Phaser.Scene {
     this.pickEnemyMovement();
     this.enemyInvulnerableUntil = this.time.now + 500;
     this.levelFiveWallActive = false;
+    this.levelFiveWallUsed = false;
 
     const level = LEVELS[this.levelIndex];
     this.enemyHp = level.enemyHp;
@@ -540,11 +543,6 @@ class MainScene extends Phaser.Scene {
     const level = LEVELS[this.levelIndex];
     if (!this.enemy || this.levelTransitioning) return;
 
-    if (this.isLevelFiveBoss() && this.wave % 5 === 0) {
-      this.startLevelFiveWallPhase();
-      return;
-    }
-
     const pattern = this.currentAttackPattern();
     const base = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
     const speed = level.bulletSpeed + Math.min(25, this.score * 0.35);
@@ -583,7 +581,9 @@ class MainScene extends Phaser.Scene {
     if (!this.enemy || this.levelFiveWallActive || this.levelTransitioning || this.gameOver || this.victory) return;
 
     this.levelFiveWallActive = true;
-    this.enemyInvulnerableUntil = this.time.now + 4200;
+    this.levelFiveWallUsed = true;
+    const phaseMs = 620 + LEVEL_FIVE_WALL_ROWS * 340 + 1000;
+    this.enemyInvulnerableUntil = this.time.now + phaseMs;
     this.clearProjectiles();
     this.setEnemyFill(0xb9f6ff);
     if (this.enemy instanceof Phaser.GameObjects.Shape) {
@@ -837,7 +837,19 @@ class MainScene extends Phaser.Scene {
     this.time.delayedCall(55, () => this.resetEnemyVisual());
     this.updateHud();
 
-    if (this.enemyHp <= 0) this.defeatEnemy();
+    if (this.enemyHp <= 0) {
+      this.defeatEnemy();
+      return;
+    }
+
+    if (this.shouldTriggerLevelFiveWall()) {
+      this.startLevelFiveWallPhase();
+    }
+  }
+
+  private shouldTriggerLevelFiveWall() {
+    if (!this.isLevelFiveBoss() || this.levelFiveWallUsed || this.levelFiveWallActive) return false;
+    return this.enemyHp <= LEVELS[LEVEL_FIVE_INDEX].enemyHp / 2;
   }
 
   private defeatEnemy() {
