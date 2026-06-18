@@ -260,6 +260,7 @@ class MainScene extends Phaser.Scene {
     this.sharedLeaderboard = [];
     this.leaderboardStatus = 'Loading shared leaderboard...';
     this.leaderboardNameEntryActive = false;
+    this.lastLeaderboardName = this.loadSavedLeaderboardName();
 
     this.addBackground();
     this.physics.world.setBounds(PLAY_X, 0, GAME_WIDTH, HEIGHT);
