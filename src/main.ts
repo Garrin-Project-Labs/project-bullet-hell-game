@@ -176,6 +176,7 @@ class MainScene extends Phaser.Scene {
   private powerText!: Phaser.GameObjects.Text;
   private upgradeText!: Phaser.GameObjects.Text;
   private miniLeaderboardPanel!: Phaser.GameObjects.Rectangle;
+  private miniLeaderboardTitle!: Phaser.GameObjects.Text;
   private miniLeaderboardText!: Phaser.GameObjects.Text;
   private helpText!: Phaser.GameObjects.Text;
   private overlay?: Phaser.GameObjects.Container;
@@ -294,14 +295,27 @@ class MainScene extends Phaser.Scene {
     this.upgradeText.setDepth(21);
     this.helpText.setDepth(21);
 
-    this.miniLeaderboardPanel = this.add.rectangle(PLAY_RIGHT + HUD_WIDTH / 2, PLAY_TOP + 92, HUD_WIDTH - 36, 164, 0x050714, 0.82)
-      .setStrokeStyle(2, 0x7cf7ff, 0.38)
+    this.add.rectangle(PLAY_RIGHT + HUD_WIDTH / 2, PLAY_TOP + 96, HUD_WIDTH - 26, 174, 0x7cf7ff, 0.06)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(19);
+    this.miniLeaderboardPanel = this.add.rectangle(PLAY_RIGHT + HUD_WIDTH / 2, PLAY_TOP + 96, HUD_WIDTH - 36, 164, 0x050714, 0.88)
+      .setStrokeStyle(2, 0x7cf7ff, 0.55)
       .setDepth(20);
-    this.miniLeaderboardText = this.add.text(PLAY_RIGHT + 24, PLAY_TOP + 28, this.formatMiniLeaderboard(), {
+    this.add.rectangle(PLAY_RIGHT + HUD_WIDTH / 2, PLAY_TOP + 38, HUD_WIDTH - 70, 2, 0x7cf7ff, 0.8)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(21);
+    this.miniLeaderboardTitle = this.add.text(PLAY_RIGHT + HUD_WIDTH / 2, PLAY_TOP + 48, '◆ TOP 3 ◆', {
       fontFamily: 'monospace',
-      fontSize: '12px',
+      fontSize: '15px',
+      color: '#7cf7ff',
+      stroke: '#050714',
+      strokeThickness: 3
+    }).setOrigin(0.5, 0).setDepth(21);
+    this.miniLeaderboardText = this.add.text(PLAY_RIGHT + 24, PLAY_TOP + 82, this.formatMiniLeaderboard(), {
+      fontFamily: 'monospace',
+      fontSize: '13px',
       color: '#e8f8ff',
-      lineSpacing: 5
+      lineSpacing: 9
     }).setDepth(21);
 
     void this.loadSharedLeaderboard();
@@ -1175,19 +1189,16 @@ class MainScene extends Phaser.Scene {
 
   private formatMiniLeaderboard() {
     const entries = this.getLeaderboard().slice(0, 3);
-    const lines = ['TOP 3'];
     if (entries.length === 0) {
-      lines.push('loading...', '', 'No scores yet');
-      return lines.join('\n');
+      return 'SYNCING...\nNo scores yet';
     }
 
-    entries.forEach((entry, index) => {
-      const medal = ['🥇', '🥈', '🥉'][index] ?? `${index + 1}.`;
+    return entries.map((entry, index) => {
+      const rank = `${index + 1}`.padStart(2, '0');
       const name = entry.name.slice(0, 8).padEnd(8, ' ');
-      lines.push(`${medal} ${name}`);
-      lines.push(`   ${entry.score}  L${entry.level}`);
-    });
-    return lines.join('\n');
+      const score = String(entry.score).padStart(5, ' ');
+      return `${rank}  ${name}  ${score}`;
+    }).join('\n');
   }
 
   private formatLeaderboard() {
