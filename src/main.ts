@@ -190,7 +190,7 @@ class MainScene extends Phaser.Scene {
   private sharedLeaderboard: LeaderboardEntry[] = [];
   private leaderboardStatus = 'Local scores only';
   private leaderboardNameEntryActive = false;
-  private lastLeaderboardName = 'BANANA';
+  private lastLeaderboardName = '';
   private enemyFireEvent?: Phaser.Time.TimerEvent;
   private bossLaserActive = false;
   private levelFiveWallActive = false;
@@ -1295,7 +1295,11 @@ class MainScene extends Phaser.Scene {
 
     const submitScore = () => {
       if (this.scoreSubmitted) return;
-      const safeName = (playerName.trim() || 'BANANA').slice(0, LEADERBOARD_NAME_LIMIT).toUpperCase();
+      const safeName = playerName.trim().slice(0, LEADERBOARD_NAME_LIMIT).toUpperCase();
+      if (!safeName) {
+        prompt.setText('Enter a name first, or Esc to skip');
+        return;
+      }
       this.lastLeaderboardName = safeName;
       this.saveLeaderboardName(safeName);
       this.scoreSubmitted = true;
@@ -1327,10 +1331,15 @@ class MainScene extends Phaser.Scene {
 
   private loadSavedLeaderboardName() {
     try {
-      return (window.localStorage.getItem(LEADERBOARD_NAME_STORAGE_KEY) || 'BANANA')
+      const saved = (window.localStorage.getItem(LEADERBOARD_NAME_STORAGE_KEY) || '')
         .replace(/[^a-zA-Z0-9 _-]/g, '')
         .slice(0, LEADERBOARD_NAME_LIMIT)
-        .toUpperCase() || 'BANANA';
+        .toUpperCase();
+      if (saved === 'BANANA') {
+        window.localStorage.removeItem(LEADERBOARD_NAME_STORAGE_KEY);
+        return '';
+      }
+      return saved;
     } catch {
       return this.lastLeaderboardName;
     }
