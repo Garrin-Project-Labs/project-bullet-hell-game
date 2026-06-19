@@ -40,6 +40,7 @@ const LEVEL_FIVE_WALL_LANES = 10;
 const LEVEL_SEVEN_INDEX = 6;
 const LEVEL_SEVEN_PHASE_MS = 10000;
 const LEVEL_SEVEN_PHASE_FIRE_MS = 260;
+const LEVEL_SEVEN_SMALL_BULLET_RADIUS = 13;
 const LEVEL_SEVEN_PHASE_BULLET_RADIUS = 23;
 const LEVEL_SEVEN_ORB_COUNT = 5;
 const FINAL_BOSS_INDEX = 9;
@@ -310,13 +311,13 @@ class MainScene extends Phaser.Scene {
     this.lastLeaderboardName = this.loadSavedLeaderboardName();
 
     this.addBackground();
-    this.physics.world.setBounds(PLAY_X, 0, GAME_WIDTH, HEIGHT);
+    this.physics.world.setBounds(PLAY_X, PLAY_TOP, GAME_WIDTH, HEIGHT - PLAY_TOP);
 
     this.player = this.add.image(PLAY_CENTER, HEIGHT - 80, 'banana-boss').setScale(0.55);
     this.physics.add.existing(this.player);
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
-    playerBody.setSize(44, 44);
-    playerBody.setOffset(18, 18);
+    playerBody.setSize(80, 80);
+    playerBody.setOffset(0, 0);
     playerBody.setCollideWorldBounds(true);
 
     this.bullets = this.physics.add.group({ classType: Phaser.GameObjects.Arc, maxSize: 800 });
@@ -835,7 +836,7 @@ class MainScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const t = count === 1 ? 0.5 : i / (count - 1);
       const angle = Math.PI / 2 + sway + Phaser.Math.Linear(-spread, spread, t);
-      this.spawnEnemyBullet(this.enemy.x, this.enemy.y + 22, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS);
+      this.spawnEnemyBullet(this.enemy.x, this.enemy.y + 22, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d, LEVEL_SEVEN_SMALL_BULLET_RADIUS);
     }
   }
 
