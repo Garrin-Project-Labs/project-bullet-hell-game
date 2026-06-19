@@ -12,8 +12,10 @@ const PLAY_TOP = 88;
 const PLAYER_SPEED = 255;
 const PLAYER_SPEED_UPGRADE = 28;
 const PLAYER_RADIUS = 10;
-const PLAYER_HIT_ELLIPSE_X = 15;
-const PLAYER_HIT_ELLIPSE_Y = 21;
+const PLAYER_HIT_ELLIPSE_X = 13;
+const PLAYER_HIT_ELLIPSE_Y = 17;
+const PLAYER_HIT_ELLIPSE_OFFSET_X = 1;
+const PLAYER_HIT_ELLIPSE_OFFSET_Y = 8;
 const PLAYER_HIT_ELLIPSE_ROTATION = -0.78;
 const BULLET_RADIUS = 8;
 const MIN_ENEMY_BULLET_RADIUS = 8;
@@ -315,7 +317,10 @@ class MainScene extends Phaser.Scene {
     this.physics.add.existing(this.player);
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
     playerBody.setSize(PLAYER_HIT_ELLIPSE_X * 2, PLAYER_HIT_ELLIPSE_Y * 2);
-    playerBody.setOffset(40 - PLAYER_HIT_ELLIPSE_X, 40 - PLAYER_HIT_ELLIPSE_Y);
+    playerBody.setOffset(
+      40 + PLAYER_HIT_ELLIPSE_OFFSET_X - PLAYER_HIT_ELLIPSE_X,
+      40 + PLAYER_HIT_ELLIPSE_OFFSET_Y - PLAYER_HIT_ELLIPSE_Y
+    );
     playerBody.setCollideWorldBounds(true);
 
     this.bullets = this.physics.add.group({ classType: Phaser.GameObjects.Arc, maxSize: 800 });
@@ -1401,8 +1406,8 @@ class MainScene extends Phaser.Scene {
   }
 
   private isBulletTouchingBanana(bullet: Phaser.GameObjects.Arc) {
-    const dx = bullet.x - this.player.x;
-    const dy = bullet.y - this.player.y;
+    const dx = bullet.x - (this.player.x + PLAYER_HIT_ELLIPSE_OFFSET_X);
+    const dy = bullet.y - (this.player.y + PLAYER_HIT_ELLIPSE_OFFSET_Y);
     const cos = Math.cos(PLAYER_HIT_ELLIPSE_ROTATION);
     const sin = Math.sin(PLAYER_HIT_ELLIPSE_ROTATION);
     const localX = dx * cos - dy * sin;
@@ -1608,8 +1613,8 @@ class MainScene extends Phaser.Scene {
     graphics.clear();
     graphics.lineStyle(2, 0x00ff66, 0.85);
     graphics.strokeEllipse(
-      this.player.x,
-      this.player.y,
+      this.player.x + PLAYER_HIT_ELLIPSE_OFFSET_X,
+      this.player.y + PLAYER_HIT_ELLIPSE_OFFSET_Y,
       PLAYER_HIT_ELLIPSE_X * 2,
       PLAYER_HIT_ELLIPSE_Y * 2
     );
