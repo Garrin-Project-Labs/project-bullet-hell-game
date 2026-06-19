@@ -217,6 +217,9 @@ class MainScene extends Phaser.Scene {
   private debugHitboxGraphics?: Phaser.GameObjects.Graphics;
   private debugBulletLabels: Phaser.GameObjects.Text[] = [];
   private overlay?: Phaser.GameObjects.Container;
+  private startOverlay?: Phaser.GameObjects.Container;
+  private startLeaderboardText?: Phaser.GameObjects.Text;
+  private audioContext?: AudioContext;
   private scoreSubmitted = false;
   private sharedLeaderboard: LeaderboardEntry[] = [];
   private leaderboardStatus = 'Local scores only';
@@ -243,6 +246,7 @@ class MainScene extends Phaser.Scene {
   private lastPlayerFire = 0;
   private gameOver = false;
   private victory = false;
+  private gameStarted = false;
   private levelTransitioning = false;
   private waitingForUpgradeChoice = false;
   private enemyInvulnerableUntil = 0;
@@ -286,6 +290,7 @@ class MainScene extends Phaser.Scene {
     this.lastPlayerFire = 0;
     this.gameOver = false;
     this.victory = false;
+    this.gameStarted = false;
     this.levelTransitioning = false;
     this.waitingForUpgradeChoice = false;
     this.enemyInvulnerableUntil = 0;
@@ -440,12 +445,16 @@ class MainScene extends Phaser.Scene {
     }).setDepth(21);
 
     void this.loadSharedLeaderboard();
-    this.startLevel(0);
+    this.showStartScreen();
   }
 
   update(time: number, delta: number) {
     if (!this.leaderboardNameEntryActive && Phaser.Input.Keyboard.JustDown(this.wasd.R)) {
       this.scene.restart();
+      return;
+    }
+    if (!this.gameStarted) {
+      if (Phaser.Input.Keyboard.JustDown(this.fireKey)) this.beginGame();
       return;
     }
     if (!this.leaderboardNameEntryActive && Phaser.Input.Keyboard.JustDown(this.debugHitboxKey)) {
@@ -492,6 +501,73 @@ class MainScene extends Phaser.Scene {
     this.add.rectangle(PLAY_RIGHT + 1, HEIGHT / 2, 2, HEIGHT, 0x7cf7ff, 0.18).setBlendMode(Phaser.BlendModes.ADD);
   }
 
+  private showStartScreen() {
+    const panelGlow = this.add.rectangle(0, 0, 650, 330, 0x7cf7ff, 0.07).setBlendMode(Phaser.BlendModes.ADD);
+    const panel = this.add.rectangle(0, 0, 610, 300, 0x050714, 0.94).setStrokeStyle(2, 0x7cf7ff, 0.75);
+    const title = this.add.text(0, -106, 'BANANA BULLET HELL', {
+      fontFamily: 'monospace',
+      fontSize: '38px',
+      color: '#fff7a8',
+      stroke: '#ff4d8d',
+      strokeThickness: 2
+    }).setOrigin(0.5).setShadow(0, 0, '#ff4d8d', 12, true, true);
+    const subtitle = this.add.text(0, -60, 'Dodge the storm. Split the boss. Top the board.', {
+      fontFamily: 'monospace',
+      fontSize: '15px',
+      color: '#dff9ff'
+    }).setOrigin(0.5);
+    const controls = this.add.text(-250, 4, 'MOVE\nWASD / ARROWS\n\nFIRE\nSPACE\n\nPOWER\nCollect glowing BIO, RAPID, BIG, SPREAD drops', {
+      fontFamily: 'monospace',
+      fontSize: '13px',
+      color: '#a9bad1',
+      lineSpacing: 5
+    }).setOrigin(0, 0.5);
+    const topScores = this.add.text(118, 0, this.formatStartLeaderboard(), {
+      fontFamily: 'monospace',
+      fontSize: '13px',
+      color: '#e8f8ff',
+      lineSpacing: 8
+    }).setOrigin(0.5);
+    this.startLeaderboardText = topScores;
+    const prompt = this.add.text(0, 120, 'PRESS SPACE TO START', {
+      fontFamily: 'monospace',
+      fontSize: '18px',
+      color: '#9cff6a',
+      stroke: '#020712',
+      strokeThickness: 4
+    }).setOrigin(0.5).setShadow(0, 0, '#9cff6a', 10, true, true);
+
+    this.startOverlay = this.add.container(PLAY_CENTER, HEIGHT / 2, [panelGlow, panel, title, subtitle, controls, topScores, prompt]).setDepth(80);
+    this.tweens.add({ targets: panelGlow, alpha: 0.16, yoyo: true, repeat: -1, duration: 900 });
+    this.tweens.add({ targets: prompt, alpha: 0.45, yoyo: true, repeat: -1, duration: 520 });
+  }
+
+  private beginGame() {
+    if (this.gameStarted) return;
+    this.gameStarted = true;
+    this.resumeAudio();
+    this.playTone(523, 0.08, 'triangle', 0.05);
+    this.playTone(784, 0.12, 'triangle', 0.045, 0.07);
+    this.startOverlay?.destroy();
+    this.startOverlay = undefined;
+    this.startLevel(0);
+  }
+
+  private formatStartLeaderboard() {
+    const entries = this.getLeaderboard().slice(0, 3);
+    const lines = ['◆ TOP PILOTS ◆'];
+    if (entries.length === 0) {
+      lines.push('No scores yet');
+      lines.push('Be the first banana');
+      return lines.join('\n');
+    }
+
+    entries.forEach((entry, index) => {
+      lines.push(`${index + 1}. ${entry.name.slice(0, 8).padEnd(8, ' ')} ${String(entry.score).padStart(5, ' ')}`);
+    });
+    return lines.join('\n');
+  }
+
   private startLevel(index: number) {
     this.levelIndex = index;
     this.wave = 0;
@@ -517,6 +593,8 @@ class MainScene extends Phaser.Scene {
     this.enemyFireEvent = this.time.addEvent({ delay: level.fireMs, loop: true, callback: () => this.firePattern() });
 
     this.showLevelBanner(level);
+    this.playTone(330 + this.levelIndex * 28, 0.09, 'triangle', 0.035);
+    this.playTone(495 + this.levelIndex * 28, 0.11, 'triangle', 0.028, 0.08);
     this.updateHud();
   }
 
@@ -579,22 +657,55 @@ class MainScene extends Phaser.Scene {
   }
 
   private showLevelBanner(level: LevelConfig) {
-    const banner = this.add.text(PLAY_CENTER, HEIGHT / 2 - 110, this.isEndlessLevel() ? `HIDDEN LEVEL 11: ${level.name}` : `LEVEL ${this.levelIndex + 1}: ${level.name}`, {
+    const titleText = this.isEndlessLevel() ? `HIDDEN LEVEL 11: ${level.name}` : `LEVEL ${this.levelIndex + 1}: ${level.name}`;
+    const hintText = this.levelFlavorText();
+    const glow = this.add.rectangle(PLAY_CENTER, HEIGHT / 2 - 80, 620, 86, level.enemyColor, 0.08)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(29);
+    const banner = this.add.text(PLAY_CENTER, HEIGHT / 2 - 110, titleText, {
       fontFamily: 'monospace',
       fontSize: '28px',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 5
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(30);
+    const hint = this.add.text(PLAY_CENTER, HEIGHT / 2 - 72, hintText, {
+      fontFamily: 'monospace',
+      fontSize: '13px',
+      color: '#dff9ff',
+      stroke: '#020712',
+      strokeThickness: 3
+    }).setOrigin(0.5).setDepth(30);
 
     this.tweens.add({
-      targets: banner,
+      targets: [banner, hint, glow],
       y: banner.y - 24,
       alpha: 0,
       delay: 700,
       duration: 650,
-      onComplete: () => banner.destroy()
+      onComplete: () => {
+        banner.destroy();
+        hint.destroy();
+        glow.destroy();
+      }
     });
+  }
+
+  private levelFlavorText() {
+    const hints = [
+      'Warm-up pattern: read the ring, keep moving.',
+      'Needles track you. Drift, then cut back.',
+      'Bursts fan wide. Small moves beat panic.',
+      'Crossfire lanes. Watch the side walls.',
+      'Bloom phase: find the shield-wall gap.',
+      'Spirals punish straight lines.',
+      'Big solar orbs. Slow is smooth.',
+      'Undertow drops from above. Own the gaps.',
+      'Prism fans stack up. Stay light.',
+      'Final banana singularity. Commit to the lane.'
+    ];
+    if (this.isEndlessLevel()) return 'Endless peel pressure. Survive the climb.';
+    return hints[this.levelIndex] ?? 'New pattern incoming.';
   }
 
   private movePlayer(delta: number) {
@@ -1293,10 +1404,12 @@ class MainScene extends Phaser.Scene {
       this.spawnPlayerShot(this.player.x - 8, this.player.y - 18, -95, speed * 0.93, width, height);
       this.spawnPlayerShot(this.player.x, this.player.y - 20, 0, speed, width, height);
       this.spawnPlayerShot(this.player.x + 8, this.player.y - 18, 95, speed * 0.93, width, height);
+      this.playTone(880, 0.035, 'square', 0.018);
       return;
     }
 
     this.spawnPlayerShot(this.player.x, this.player.y - 18, 0, speed, width, height);
+    this.playTone(880, 0.035, 'square', 0.018);
   }
 
   private spawnPlayerShot(x: number, y: number, velocityX: number, velocityY: number, width = 8, height = 22) {
@@ -1333,6 +1446,8 @@ class MainScene extends Phaser.Scene {
       this.defeatEnemy();
       return;
     }
+
+    this.playTone(220 + this.levelIndex * 18, 0.045, 'triangle', 0.025);
 
     if (this.shouldTriggerLevelFiveWall()) {
       this.startLevelFiveWallPhase();
@@ -1486,6 +1601,8 @@ class MainScene extends Phaser.Scene {
 
   private playEnemyExplosion(x: number, y: number, color: number) {
     this.enemy?.setVisible(false);
+    this.playTone(180, 0.12, 'sawtooth', 0.045);
+    this.playTone(90, 0.22, 'sine', 0.04, 0.04);
 
     for (let i = 0; i < 18; i++) {
       const angle = (Math.PI * 2 * i) / 18;
@@ -1538,6 +1655,7 @@ class MainScene extends Phaser.Scene {
   private damagePlayer() {
     this.hp--;
     this.invulnerableUntil = this.time.now + 1100;
+    this.playTone(130, 0.14, 'sawtooth', 0.04);
     this.cameras.main.shake(120, 0.008);
     this.updateHud();
     if (this.hp <= 0) this.endGame();
@@ -1629,6 +1747,8 @@ class MainScene extends Phaser.Scene {
       this.hideImmunityRing();
     }
     this.updateHud();
+    this.playTone(kind === 'bio' ? 660 : 560, 0.08, 'sine', 0.04);
+    this.playTone(kind === 'bio' ? 990 : 840, 0.1, 'sine', 0.03, 0.06);
   }
 
   private activateDebugBioShield(time: number) {
@@ -1693,6 +1813,31 @@ class MainScene extends Phaser.Scene {
   private hideImmunityRing() {
     this.immunityRing?.destroy();
     this.immunityRing = undefined;
+  }
+
+  private resumeAudio() {
+    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    this.audioContext ??= new AudioContextClass();
+    if (this.audioContext.state === 'suspended') void this.audioContext.resume();
+  }
+
+  private playTone(frequency: number, duration: number, type: OscillatorType = 'sine', volume = 0.03, delay = 0) {
+    this.resumeAudio();
+    if (!this.audioContext) return;
+
+    const start = this.audioContext.currentTime + delay;
+    const oscillator = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(volume, start + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    oscillator.connect(gain);
+    gain.connect(this.audioContext.destination);
+    oscillator.start(start);
+    oscillator.stop(start + duration + 0.02);
   }
 
   private updateImmunityRing() {
@@ -2001,6 +2146,7 @@ class MainScene extends Phaser.Scene {
       const entries = Array.isArray(data?.scores) ? data.scores : [];
       this.sharedLeaderboard = entries.filter((entry: LeaderboardEntry) => typeof entry?.score === 'number').slice(0, LEADERBOARD_LIMIT);
       this.leaderboardStatus = 'Shared leaderboard online';
+      this.startLeaderboardText?.setText(this.formatStartLeaderboard());
       this.updateMiniLeaderboard();
     } catch {
       this.leaderboardStatus = 'Shared leaderboard unavailable';
