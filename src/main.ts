@@ -1144,15 +1144,16 @@ class MainScene extends Phaser.Scene {
     const bullet = this.bullets.get(x, y, BULLET_RADIUS, color) as Phaser.GameObjects.Arc | null;
     if (!bullet) return undefined;
     bullet.setActive(true).setVisible(true).setData('grazed', false);
+    bullet.setScale(1);
+    bullet.setRadius(visibleRadius);
     bullet.setFillStyle(color, 1);
     bullet.setStrokeStyle(ENEMY_BULLET_STROKE_WIDTH, 0xffffff, 0.95);
-    bullet.setScale(visibleRadius / BULLET_RADIUS);
     bullet.setBlendMode(Phaser.BlendModes.ADD);
-    const hitRadius = visibleRadius * ENEMY_BULLET_HITBOX_SCALE + ENEMY_BULLET_STROKE_WIDTH / 2;
+    const hitRadius = visibleRadius * ENEMY_BULLET_HITBOX_SCALE;
     bullet.setData('visibleRadius', visibleRadius);
     bullet.setData('hitRadius', hitRadius);
     const body = bullet.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(hitRadius, BULLET_RADIUS - hitRadius, BULLET_RADIUS - hitRadius);
+    body.setCircle(hitRadius);
     body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
     return bullet;
   }
@@ -1608,11 +1609,11 @@ class MainScene extends Phaser.Scene {
     for (const obj of this.bullets.getChildren()) {
       const bullet = obj as Phaser.GameObjects.Arc;
       if (!bullet.active || !bullet.visible) continue;
-      const visibleRadius = Number(bullet.getData('visibleRadius') || BULLET_RADIUS);
+      const visibleRadius = Number(bullet.getData('visibleRadius') || bullet.radius || BULLET_RADIUS);
       const hitRadius = Number(bullet.getData('hitRadius') || visibleRadius);
 
       graphics.lineStyle(1, 0xffffff, 0.28);
-      graphics.strokeCircle(bullet.x, bullet.y, visibleRadius + ENEMY_BULLET_STROKE_WIDTH / 2);
+      graphics.strokeCircle(bullet.x, bullet.y, visibleRadius);
       graphics.lineStyle(2, 0xff3355, 0.88);
       graphics.strokeCircle(bullet.x, bullet.y, hitRadius);
     }
