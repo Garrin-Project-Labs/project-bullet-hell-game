@@ -162,7 +162,7 @@ const LEVELS: LevelConfig[] = [
     enemyColor: 0xd36bff,
     enemyHp: 42,
     fireMs: 535,
-    bulletCount: 13,
+    bulletCount: 11,
     bulletSpeed: 183,
     spin: 0.2
   },
