@@ -213,7 +213,7 @@ class MainScene extends Phaser.Scene {
   private miniLeaderboardTitle!: Phaser.GameObjects.Text;
   private miniLeaderboardText!: Phaser.GameObjects.Text;
   private helpText!: Phaser.GameObjects.Text;
-  private debugHitboxText!: Phaser.GameObjects.Text;
+  private debugHitboxKey!: Phaser.Input.Keyboard.Key;
   private debugHitboxGraphics?: Phaser.GameObjects.Graphics;
   private debugBulletLabels: Phaser.GameObjects.Text[] = [];
   private overlay?: Phaser.GameObjects.Container;
@@ -333,7 +333,8 @@ class MainScene extends Phaser.Scene {
     this.powerUpOverlap = this.physics.add.overlap(this.player, this.powerUps, (_, powerUp) => this.collectPowerUp(powerUp as Phaser.GameObjects.Arc));
 
     this.cursors = this.input.keyboard!.createCursorKeys();
-    this.wasd = this.input.keyboard!.addKeys('W,A,S,D,R,H') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.wasd = this.input.keyboard!.addKeys('W,A,S,D,R') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.debugHitboxKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NINE);
     this.fireKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.input.keyboard!.addCapture([Phaser.Input.Keyboard.KeyCodes.SPACE]);
 
@@ -405,11 +406,6 @@ class MainScene extends Phaser.Scene {
       strokeThickness: 2,
       lineSpacing: 4
     });
-    this.debugHitboxText = this.add.text(24, 548, 'H: hitboxes', {
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      color: '#5d718a'
-    }).setDepth(21);
     this.debugHitboxGraphics = this.add.graphics().setDepth(40).setVisible(false);
 
     this.scoreLabelText.setDepth(21);
@@ -419,7 +415,6 @@ class MainScene extends Phaser.Scene {
     this.upgradeLabelText.setDepth(21);
     this.upgradeText.setDepth(21);
     this.helpText.setDepth(21);
-    this.debugHitboxText.setDepth(21);
 
     this.add.rectangle(PLAY_RIGHT + HUD_WIDTH / 2, PLAY_TOP + 96, HUD_WIDTH - 26, 174, 0x7cf7ff, 0.06)
       .setBlendMode(Phaser.BlendModes.ADD)
@@ -453,10 +448,9 @@ class MainScene extends Phaser.Scene {
       this.scene.restart();
       return;
     }
-    if (!this.leaderboardNameEntryActive && Phaser.Input.Keyboard.JustDown(this.wasd.H)) {
+    if (!this.leaderboardNameEntryActive && Phaser.Input.Keyboard.JustDown(this.debugHitboxKey)) {
       this.debugHitboxes = !this.debugHitboxes;
       this.debugHitboxGraphics?.setVisible(this.debugHitboxes);
-      this.debugHitboxText?.setText(this.debugHitboxes ? 'H: hitboxes ON + BIO' : 'H: hitboxes');
       if (this.debugHitboxes) {
         this.activateDebugBioShield(time);
       } else {
