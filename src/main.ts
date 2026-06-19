@@ -19,7 +19,6 @@ const PLAYER_HIT_CIRCLES = [
 ];
 const PLAYER_LASER_HALF_WIDTH = 18;
 const BULLET_RADIUS = 8;
-const MIN_ENEMY_BULLET_RADIUS = 8;
 const ENEMY_BULLET_HITBOX_SCALE = 1;
 const ENEMY_BULLET_STROKE_WIDTH = 3;
 const GRAZE_RADIUS = 20;
@@ -1140,8 +1139,8 @@ class MainScene extends Phaser.Scene {
   }
 
   private spawnEnemyBullet(x: number, y: number, angle: number, speed: number, color: number, radius = BULLET_RADIUS) {
-    const visibleRadius = Math.max(MIN_ENEMY_BULLET_RADIUS, radius);
-    const bullet = this.bullets.get(x, y, BULLET_RADIUS, color) as Phaser.GameObjects.Arc | null;
+    const visibleRadius = radius;
+    const bullet = this.bullets.get(x, y, radius, color) as Phaser.GameObjects.Arc | null;
     if (!bullet) return undefined;
     bullet.setActive(true).setVisible(true).setData('grazed', false);
     bullet.setScale(1);
@@ -1150,10 +1149,11 @@ class MainScene extends Phaser.Scene {
     bullet.setStrokeStyle(ENEMY_BULLET_STROKE_WIDTH, 0xffffff, 0.95);
     bullet.setBlendMode(Phaser.BlendModes.ADD);
     const hitRadius = visibleRadius * ENEMY_BULLET_HITBOX_SCALE;
+    const hitOffset = visibleRadius - hitRadius;
     bullet.setData('visibleRadius', visibleRadius);
     bullet.setData('hitRadius', hitRadius);
     const body = bullet.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(hitRadius);
+    body.setCircle(hitRadius, hitOffset, hitOffset);
     body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
     return bullet;
   }
