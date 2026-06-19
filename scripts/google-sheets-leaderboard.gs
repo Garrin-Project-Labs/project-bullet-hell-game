@@ -44,12 +44,16 @@ function sanitizeEntry_(input) {
     .replace(/[^A-Z0-9 _-]/g, '')
     .slice(0, 12) || 'BANANA';
   return {
-    date: new Date().toISOString(),
+    date: shortDate_(new Date()),
     name,
     score: clampInt_(input && input.score, 0, 999999999),
     level: clampInt_(input && input.level, 1, 10),
     grazes: clampInt_(input && input.grazes, 0, 999999999)
   };
+}
+
+function shortDate_(date) {
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), 'M/d');
 }
 
 function clampInt_(value, min, max) {

@@ -1951,7 +1951,8 @@ class MainScene extends Phaser.Scene {
       const rank = `${index + 1}.`.padEnd(3, ' ');
       const name = entry.name.padEnd(12, ' ');
       const score = String(entry.score).padStart(5, ' ');
-      lines.push(`${rank} ${name} ${score}  L${entry.level}  G${entry.grazes}`);
+      const date = (entry.date || '--/--').slice(0, 5).padEnd(5, ' ');
+      lines.push(`${rank} ${name} ${score}  ${date}  L${entry.level}  G${entry.grazes}`);
     });
     return lines.join('\n');
   }

@@ -22,7 +22,11 @@ function sanitizeEntry(input) {
   const score = Math.max(0, Math.floor(Number(input?.score || 0)));
   const level = Math.max(1, Math.min(10, Math.floor(Number(input?.level || 1))));
   const grazes = Math.max(0, Math.floor(Number(input?.grazes || 0)));
-  return { name, score, level, grazes, date: new Date().toISOString() };
+  return { name, score, level, grazes, date: shortDate(new Date()) };
+}
+
+function shortDate(date) {
+  return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
 }
 
 async function readScores(env) {
