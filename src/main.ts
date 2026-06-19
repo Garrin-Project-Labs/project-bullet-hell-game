@@ -102,9 +102,9 @@ const LEVELS: LevelConfig[] = [
     background: '#100b20',
     enemyColor: 0xa477ff,
     enemyHp: 14,
-    fireMs: 680,
+    fireMs: 820,
     bulletCount: 8,
-    bulletSpeed: 103,
+    bulletSpeed: 86,
     spin: 0.14
   },
   {
@@ -939,14 +939,16 @@ class MainScene extends Phaser.Scene {
   }
 
   private fireBurstPattern(level: LevelConfig, base: number, speed: number) {
-    const fanCount = Math.min(8, 4 + Math.floor(this.levelIndex / 2));
-    const spread = 0.55 + Math.min(0.45, this.levelIndex * 0.05);
+    const isVioletShoals = this.levelIndex === 2;
+    const fanCount = isVioletShoals ? 4 : Math.min(8, 4 + Math.floor(this.levelIndex / 2));
+    const spread = isVioletShoals ? 0.5 : 0.55 + Math.min(0.45, this.levelIndex * 0.05);
+    const mainSpeed = isVioletShoals ? speed * 0.92 : speed + 75;
     for (let i = 0; i < fanCount; i++) {
       const offset = Phaser.Math.Linear(-spread, spread, fanCount === 1 ? 0.5 : i / (fanCount - 1));
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base + offset, speed + 75, 0xff6b9d, 9);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base + offset, mainSpeed, 0xff6b9d, 9);
     }
 
-    if (this.wave % 2 === 0) {
+    if (!isVioletShoals && this.wave % 2 === 0) {
       const side = this.wave % 4 === 0 ? -1 : 1;
       for (let i = 0; i < 4; i++) {
         this.spawnEnemyBullet(this.enemy!.x + side * 26, this.enemy!.y + 16, base + side * (0.35 + i * 0.12), speed + 35, 0xfff06a, 9);
