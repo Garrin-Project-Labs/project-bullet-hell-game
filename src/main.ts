@@ -41,6 +41,7 @@ const LEVEL_FIVE_WALL_ROWS = 13;
 const LEVEL_FIVE_WALL_LANES = 10;
 const LEVEL_SEVEN_INDEX = 6;
 const LEVEL_SEVEN_PHASE_MS = 10000;
+const LEVEL_SEVEN_PHASE_SETTLE_MS = 2500; // post-orbit cooldown so slow orbs clear before normal attacks resume
 const LEVEL_SEVEN_PHASE_FIRE_MS = 260;
 const LEVEL_SEVEN_PHASE_BULLET_RADIUS = 23;
 const LEVEL_SEVEN_ORB_COUNT = 5;
@@ -1000,19 +1001,52 @@ class MainScene extends Phaser.Scene {
     });
 
     this.time.delayedCall(LEVEL_SEVEN_PHASE_MS, () => {
+      // Stop spawning orbs and the countdown, but DON'T hand control back yet.
+      // Keep the boss pinned + immune through a short settle window so the slow
+      // orbs can drift clear before normal attacks resume (prevents the desync).
       timerEvent.remove(false);
       fireEvent.remove(false);
-      shield.destroy();
-      label.destroy();
-      hint.destroy();
       timerText.destroy();
-      this.levelSevenOrbPhaseActive = false;
-      this.enemyInvulnerableUntil = this.time.now + 350;
-      if (this.enemy && !this.gameOver && !this.victory && !this.levelTransitioning) {
-        this.tweens.add({ targets: this.enemy, scaleX: 0.94, scaleY: 0.94, duration: 180, ease: 'Cubic.easeOut' });
-        this.resetEnemyVisual();
-      }
+      hint.setText('Orbit powering down...');
+      this.enemyInvulnerableUntil = this.time.now + LEVEL_SEVEN_PHASE_SETTLE_MS + 400;
+
+      this.tweens.killTweensOf(shield);
+      this.tweens.killTweensOf(label);
+      this.tweens.add({ targets: [shield, label, hint], alpha: 0, duration: LEVEL_SEVEN_PHASE_SETTLE_MS, ease: 'Cubic.easeIn' });
+
+      this.time.delayedCall(LEVEL_SEVEN_PHASE_SETTLE_MS, () => {
+        shield.destroy();
+        label.destroy();
+        hint.destroy();
+        this.fadeOutOrbitOrbs();
+        this.levelSevenOrbPhaseActive = false;
+        this.enemyInvulnerableUntil = this.time.now + 350;
+        if (this.enemy && !this.gameOver && !this.victory && !this.levelTransitioning) {
+          this.tweens.add({ targets: this.enemy, scaleX: 0.94, scaleY: 0.94, duration: 180, ease: 'Cubic.easeOut' });
+          this.resetEnemyVisual();
+        }
+      });
     });
+  }
+
+  private fadeOutOrbitOrbs() {
+    // Gracefully dissolve any slow orbit orbs still on screen so they don't
+    // overlap with the boss's resumed normal attacks.
+    for (const obj of [...this.bullets.getChildren()]) {
+      const bullet = obj as Phaser.GameObjects.Arc | Phaser.GameObjects.Ellipse;
+      if (!bullet.active || bullet.getData('debugId') !== 'level7-orbit-large-orb') continue;
+      const body = bullet.body as Phaser.Physics.Arcade.Body | null;
+      body?.setVelocity(0, 0);
+      body?.setEnable(false);
+      this.tweens.add({
+        targets: bullet,
+        alpha: 0,
+        scale: 0.4,
+        duration: 320,
+        ease: 'Cubic.easeIn',
+        onComplete: () => bullet.destroy()
+      });
+    }
   }
 
   private fireLevelSevenOrbVolley(volley: number) {
