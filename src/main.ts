@@ -49,6 +49,7 @@ const STORY_LEVEL_COUNT = 10;
 const LEADERBOARD_LIMIT = 10;
 const LEADERBOARD_NAME_LIMIT = 8;
 const LEADERBOARD_NAME_STORAGE_KEY = 'bulletHellLeaderboardName';
+const AUDIO_MUTED_STORAGE_KEY = 'bulletHellAudioMuted';
 // Shared leaderboard endpoint backed by the Google Apps Script web app.
 const SHARED_LEADERBOARD_URL = import.meta.env.VITE_LEADERBOARD_URL || '';
 
@@ -220,6 +221,8 @@ class MainScene extends Phaser.Scene {
   private startOverlay?: Phaser.GameObjects.Container;
   private startLeaderboardText?: Phaser.GameObjects.Text;
   private audioContext?: AudioContext;
+  private muteText?: Phaser.GameObjects.Text;
+  private audioMuted = false;
   private scoreSubmitted = false;
   private sharedLeaderboard: LeaderboardEntry[] = [];
   private leaderboardStatus = 'Local scores only';
@@ -291,6 +294,7 @@ class MainScene extends Phaser.Scene {
     this.gameOver = false;
     this.victory = false;
     this.gameStarted = false;
+    this.audioMuted = this.loadSavedMutePreference();
     this.levelTransitioning = false;
     this.waitingForUpgradeChoice = false;
     this.enemyInvulnerableUntil = 0;
@@ -338,7 +342,7 @@ class MainScene extends Phaser.Scene {
     this.powerUpOverlap = this.physics.add.overlap(this.player, this.powerUps, (_, powerUp) => this.collectPowerUp(powerUp as Phaser.GameObjects.Arc));
 
     this.cursors = this.input.keyboard!.createCursorKeys();
-    this.wasd = this.input.keyboard!.addKeys('W,A,S,D,R') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.wasd = this.input.keyboard!.addKeys('W,A,S,D,R,M') as Record<string, Phaser.Input.Keyboard.Key>;
     this.debugHitboxKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.NINE);
     this.fireKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.input.keyboard!.addCapture([Phaser.Input.Keyboard.KeyCodes.SPACE]);
@@ -403,7 +407,7 @@ class MainScene extends Phaser.Scene {
       wordWrap: { width: HUD_WIDTH - 52 },
       lineSpacing: 6
     });
-    this.helpText = this.add.text(28, 386, 'CONTROLS\nWASD / Arrows\nSpace to shoot\nR restart', {
+    this.helpText = this.add.text(28, 386, 'CONTROLS\nWASD / Arrows\nSpace to shoot\nR restart\nM mute sound', {
       fontFamily: 'monospace',
       fontSize: '11px',
       color: '#6f819a',
@@ -411,6 +415,14 @@ class MainScene extends Phaser.Scene {
       strokeThickness: 2,
       lineSpacing: 4
     });
+    this.muteText = this.add.text(28, 460, '', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#9cff6a',
+      stroke: '#020712',
+      strokeThickness: 3
+    }).setShadow(0, 0, '#9cff6a', 6, true, true);
+    this.updateMuteText();
     this.debugHitboxGraphics = this.add.graphics().setDepth(40).setVisible(false);
 
     this.scoreLabelText.setDepth(21);
@@ -420,6 +432,7 @@ class MainScene extends Phaser.Scene {
     this.upgradeLabelText.setDepth(21);
     this.upgradeText.setDepth(21);
     this.helpText.setDepth(21);
+    this.muteText.setDepth(21);
 
     this.add.rectangle(PLAY_RIGHT + HUD_WIDTH / 2, PLAY_TOP + 96, HUD_WIDTH - 26, 174, 0x7cf7ff, 0.06)
       .setBlendMode(Phaser.BlendModes.ADD)
@@ -452,6 +465,9 @@ class MainScene extends Phaser.Scene {
     if (!this.leaderboardNameEntryActive && Phaser.Input.Keyboard.JustDown(this.wasd.R)) {
       this.scene.restart();
       return;
+    }
+    if (!this.leaderboardNameEntryActive && Phaser.Input.Keyboard.JustDown(this.wasd.M)) {
+      this.toggleMute();
     }
     if (!this.gameStarted) {
       if (Phaser.Input.Keyboard.JustDown(this.fireKey)) this.beginGame();
@@ -1404,12 +1420,12 @@ class MainScene extends Phaser.Scene {
       this.spawnPlayerShot(this.player.x - 8, this.player.y - 18, -95, speed * 0.93, width, height);
       this.spawnPlayerShot(this.player.x, this.player.y - 20, 0, speed, width, height);
       this.spawnPlayerShot(this.player.x + 8, this.player.y - 18, 95, speed * 0.93, width, height);
-      this.playTone(880, 0.035, 'square', 0.018);
+      this.playShootSound();
       return;
     }
 
     this.spawnPlayerShot(this.player.x, this.player.y - 18, 0, speed, width, height);
-    this.playTone(880, 0.035, 'square', 0.018);
+    this.playShootSound();
   }
 
   private spawnPlayerShot(x: number, y: number, velocityX: number, velocityY: number, width = 8, height = 22) {
@@ -1816,13 +1832,15 @@ class MainScene extends Phaser.Scene {
   }
 
   private resumeAudio() {
+    if (this.audioMuted) return;
     const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
     this.audioContext ??= new AudioContextClass();
     if (this.audioContext.state === 'suspended') void this.audioContext.resume();
   }
 
-  private playTone(frequency: number, duration: number, type: OscillatorType = 'sine', volume = 0.03, delay = 0) {
+  private playTone(frequency: number, duration: number, type: OscillatorType = 'sine', volume = 0.03, delay = 0, endFrequency?: number) {
+    if (this.audioMuted) return;
     this.resumeAudio();
     if (!this.audioContext) return;
 
@@ -1831,6 +1849,9 @@ class MainScene extends Phaser.Scene {
     const gain = this.audioContext.createGain();
     oscillator.type = type;
     oscillator.frequency.setValueAtTime(frequency, start);
+    if (endFrequency && endFrequency !== frequency) {
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, endFrequency), start + duration);
+    }
     gain.gain.setValueAtTime(0.0001, start);
     gain.gain.exponentialRampToValueAtTime(volume, start + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
@@ -1838,6 +1859,46 @@ class MainScene extends Phaser.Scene {
     gain.connect(this.audioContext.destination);
     oscillator.start(start);
     oscillator.stop(start + duration + 0.02);
+  }
+
+  private playShootSound() {
+    if (this.audioMuted) return;
+    // Soft "pew": quick downward sweep, sine body + faint triangle harmonic, low volume.
+    this.playTone(620, 0.08, 'sine', 0.025, 0, 240);
+    this.playTone(1240, 0.05, 'triangle', 0.008, 0, 520);
+  }
+
+  private toggleMute() {
+    this.audioMuted = !this.audioMuted;
+    this.saveMutePreference(this.audioMuted);
+    this.updateMuteText();
+    if (this.audioMuted) {
+      if (this.audioContext && this.audioContext.state === 'running') void this.audioContext.suspend();
+    } else {
+      this.resumeAudio();
+      this.playTone(660, 0.07, 'sine', 0.03);
+    }
+  }
+
+  private updateMuteText() {
+    this.muteText?.setText(this.audioMuted ? '\uD83D\uDD07 SOUND OFF (M)' : '\uD83D\uDD0A SOUND ON (M)');
+    this.muteText?.setColor(this.audioMuted ? '#6f819a' : '#9cff6a');
+  }
+
+  private loadSavedMutePreference() {
+    try {
+      return window.localStorage.getItem(AUDIO_MUTED_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private saveMutePreference(muted: boolean) {
+    try {
+      window.localStorage.setItem(AUDIO_MUTED_STORAGE_KEY, muted ? '1' : '0');
+    } catch {
+      // ignore storage failures
+    }
   }
 
   private updateImmunityRing() {
