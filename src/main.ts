@@ -223,7 +223,6 @@ class MainScene extends Phaser.Scene {
   private levelFiveWallActive = false;
   private levelFiveWallUsed = false;
   private levelSevenOrbPhaseActive = false;
-  private levelSevenOrbPhase75Used = false;
   private levelSevenOrbPhase25Used = false;
   private enemyOverlap?: Phaser.Physics.Arcade.Collider;
   private powerUpOverlap?: Phaser.Physics.Arcade.Collider;
@@ -305,7 +304,6 @@ class MainScene extends Phaser.Scene {
     this.levelFiveWallActive = false;
     this.levelFiveWallUsed = false;
     this.levelSevenOrbPhaseActive = false;
-    this.levelSevenOrbPhase75Used = false;
     this.levelSevenOrbPhase25Used = false;
     this.sharedLeaderboard = [];
     this.leaderboardStatus = 'Loading shared leaderboard...';
@@ -449,7 +447,6 @@ class MainScene extends Phaser.Scene {
     this.levelFiveWallActive = false;
     this.levelFiveWallUsed = false;
     this.levelSevenOrbPhaseActive = false;
-    this.levelSevenOrbPhase75Used = false;
     this.levelSevenOrbPhase25Used = false;
 
     const level = this.currentLevelConfig();
@@ -712,11 +709,6 @@ class MainScene extends Phaser.Scene {
     if (!this.isLevelSevenBoss() || this.levelSevenOrbPhaseActive || this.levelTransitioning) return false;
     const hpRatio = this.enemyHp / Math.max(1, this.enemyMaxHp);
 
-    if (!this.levelSevenOrbPhase75Used && hpRatio <= 0.75) {
-      this.levelSevenOrbPhase75Used = true;
-      return true;
-    }
-
     if (!this.levelSevenOrbPhase25Used && hpRatio <= 0.25) {
       this.levelSevenOrbPhase25Used = true;
       return true;
@@ -823,7 +815,7 @@ class MainScene extends Phaser.Scene {
   private fireLevelSevenOrbVolley(volley: number) {
     if (!this.enemy) return;
     const count = LEVEL_SEVEN_ORB_COUNT;
-    const spin = -Math.PI / 2 + volley * 0.38;
+    const spin = -Math.PI / 2 + volley * (0.14 + volley * 0.018);
     const spacing = 0.18;
     const speed = 72;
 
