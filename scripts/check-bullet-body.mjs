@@ -7,9 +7,12 @@ const methodExpectations = [
   ['visible radius uses requested radius directly', 'const visibleRadius = radius;'],
   ['group get uses requested radius', 'this.bullets.get(x, y, radius, color)'],
   ['body circle offset centers on resized arc', 'const hitOffset = visibleRadius - hitRadius;'],
-  ['setCircle receives explicit offset', 'body.setCircle(hitRadius, hitOffset, hitOffset);']
+  ['setCircle receives explicit offset', 'body.setCircle(hitRadius, hitOffset, hitOffset);'],
+  ['enemy bullets store debug ids', "bullet.setData('debugId', debugId);"],
+  ['enemy bullets store speed for debug labels', "bullet.setData('speed', speed);"]
 ];
 const sourceExpectations = [
+  ['H debug overlay labels bullet ids', 'addDebugBulletLabel'],
   ['level 7 normal pattern only uses large orb bullets', 'LEVEL_SEVEN_PHASE_BULLET_RADIUS'],
   ['final boss heavy pattern leaves a lane gap', 'private fireFinalBossGapPattern'],
   ['final boss skips the chosen gap lane', 'if (lane === gapLane) continue;'],
@@ -30,4 +33,4 @@ for (const [label, needle] of sourceExpectations) {
   }
 }
 if (!ok) process.exit(1);
-console.log('PASS: bullet sizing, level 7 large-orb-only pattern, and final boss gap lane are in place');
+console.log('PASS: bullet sizing, debug labels, level 7 large-orb-only pattern, and final boss gap lane are in place');

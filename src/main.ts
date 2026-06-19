@@ -211,6 +211,7 @@ class MainScene extends Phaser.Scene {
   private helpText!: Phaser.GameObjects.Text;
   private debugHitboxText!: Phaser.GameObjects.Text;
   private debugHitboxGraphics?: Phaser.GameObjects.Graphics;
+  private debugBulletLabels: Phaser.GameObjects.Text[] = [];
   private overlay?: Phaser.GameObjects.Container;
   private scoreSubmitted = false;
   private sharedLeaderboard: LeaderboardEntry[] = [];
@@ -399,7 +400,7 @@ class MainScene extends Phaser.Scene {
       this.debugHitboxes = !this.debugHitboxes;
       this.debugHitboxGraphics?.setVisible(this.debugHitboxes);
       this.debugHitboxText?.setText(this.debugHitboxes ? 'H: hitboxes ON' : 'H: hitboxes');
-      if (!this.debugHitboxes) this.debugHitboxGraphics?.clear();
+      if (!this.debugHitboxes) this.clearDebugHitboxOverlay();
     }
     if (this.gameOver || this.victory || this.levelTransitioning || this.waitingForUpgradeChoice || !this.enemy) return;
 
@@ -821,7 +822,7 @@ class MainScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const offset = (i - (count - 1) / 2) * spacing;
       const angle = spin + offset;
-      this.spawnEnemyBullet(this.enemy.x, this.enemy.y, angle, speed, 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS);
+      this.spawnEnemyBullet(this.enemy.x, this.enemy.y, angle, speed, 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS, 'level7-orbit-large-orb');
     }
   }
 
@@ -835,7 +836,7 @@ class MainScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const t = count === 1 ? 0.5 : i / (count - 1);
       const angle = Math.PI / 2 + sway + Phaser.Math.Linear(-spread, spread, t);
-      this.spawnEnemyBullet(this.enemy.x, this.enemy.y + 22, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS);
+      this.spawnEnemyBullet(this.enemy.x, this.enemy.y + 22, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS, 'level7-boss-large-orb');
     }
   }
 
@@ -905,7 +906,7 @@ class MainScene extends Phaser.Scene {
     for (let lane = 0; lane < LEVEL_FIVE_WALL_LANES; lane++) {
       if (lane === gapLane) continue;
       const x = PLAY_X + lane * laneWidth + laneWidth / 2;
-      const bullet = this.spawnEnemyBullet(x, y, Math.PI / 2, 185 + row * 7, 0x4dd7ff, 13);
+      const bullet = this.spawnEnemyBullet(x, y, Math.PI / 2, 185 + row * 7, 0x4dd7ff, 13, 'level5-wall-row');
       bullet?.setData('wallBullet', true);
     }
   }
@@ -917,7 +918,7 @@ class MainScene extends Phaser.Scene {
 
     for (let i = 0; i < count; i++) {
       const angle = base + spin + (Math.PI * 2 * i) / count;
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed, 0xffd166, 9);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed, 0xffd166, 9, 'ring');
     }
   }
 
@@ -928,12 +929,12 @@ class MainScene extends Phaser.Scene {
     for (let i = 0; i < fanCount; i++) {
       const t = fanCount === 1 ? 0.5 : i / (fanCount - 1);
       const angle = base + Phaser.Math.Linear(-spread, spread, t);
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 20, angle, speed + 42, level.enemyColor, 8);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 20, angle, speed + 42, level.enemyColor, 8, 'aimed-needle');
     }
 
     if (this.wave % 3 === 0) {
       const side = this.wave % 2 === 0 ? -1 : 1;
-      this.spawnEnemyBullet(this.enemy!.x + side * 34, this.enemy!.y + 18, base + side * 0.38, speed * 0.82, 0x9cff6a, 10);
+      this.spawnEnemyBullet(this.enemy!.x + side * 34, this.enemy!.y + 18, base + side * 0.38, speed * 0.82, 0x9cff6a, 10, 'aimed-side');
     }
   }
 
@@ -944,13 +945,13 @@ class MainScene extends Phaser.Scene {
     const mainSpeed = isVioletShoals ? speed * 0.92 : speed + 75;
     for (let i = 0; i < fanCount; i++) {
       const offset = Phaser.Math.Linear(-spread, spread, fanCount === 1 ? 0.5 : i / (fanCount - 1));
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base + offset, mainSpeed, 0xff6b9d, 9);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base + offset, mainSpeed, 0xff6b9d, 9, 'burst-main');
     }
 
     if (!isVioletShoals && this.wave % 2 === 0) {
       const side = this.wave % 4 === 0 ? -1 : 1;
       for (let i = 0; i < 4; i++) {
-        this.spawnEnemyBullet(this.enemy!.x + side * 26, this.enemy!.y + 16, base + side * (0.35 + i * 0.12), speed + 35, 0xfff06a, 9);
+        this.spawnEnemyBullet(this.enemy!.x + side * 26, this.enemy!.y + 16, base + side * (0.35 + i * 0.12), speed + 35, 0xfff06a, 9, 'burst-side');
       }
     }
   }
@@ -963,7 +964,7 @@ class MainScene extends Phaser.Scene {
 
     for (let i = 0; i < laneCount; i++) {
       const y = PLAY_TOP + 38 + i * 72;
-      this.spawnEnemyBullet(startX, y, angle, speed * 0.72, i % 2 === 0 ? level.enemyColor : 0xff6b35, 10);
+      this.spawnEnemyBullet(startX, y, angle, speed * 0.72, i % 2 === 0 ? level.enemyColor : 0xff6b35, 10, 'crosshatch');
     }
 
     if (this.wave % 3 === 0) {
@@ -979,7 +980,7 @@ class MainScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const angle = spin + pulse + (Math.PI * 2 * i) / count;
       const radius = i % 3 === 0 ? 12 : 9;
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed * 0.86, level.enemyColor, radius);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed * 0.86, level.enemyColor, radius, `bloom-r${radius}`);
     }
 
     if (this.wave % 4 === 0) {
@@ -997,12 +998,12 @@ class MainScene extends Phaser.Scene {
     const lanes = this.levelIndex < 3 ? [0] : this.levelIndex < 6 ? [-38, 38] : [-56, 0, 56];
     for (const offset of lanes) {
       const wobble = Math.sin((this.wave + offset) * 0.8) * 0.08;
-      this.spawnEnemyBullet(this.enemy!.x + offset, this.enemy!.y + 30, Math.PI / 2 + wobble, speed * 0.62, 0xff4d4d, BULLET_RADIUS * 2.35);
+      this.spawnEnemyBullet(this.enemy!.x + offset, this.enemy!.y + 30, Math.PI / 2 + wobble, speed * 0.62, 0xff4d4d, BULLET_RADIUS * 2.35, 'heavy-lane');
     }
 
     if (this.wave % 3 === 0) {
       const aimed = Phaser.Math.Angle.Between(this.enemy!.x, this.enemy!.y, this.player.x, this.player.y);
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, aimed, speed * 0.85, 0xfff7a8, BULLET_RADIUS * 1.85);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, aimed, speed * 0.85, 0xfff7a8, BULLET_RADIUS * 1.85, 'heavy-aimed');
     }
   }
 
@@ -1016,7 +1017,7 @@ class MainScene extends Phaser.Scene {
       if (lane === gapLane) continue;
       const laneCenter = PLAY_X + lane * laneWidth + laneWidth / 2;
       const wobble = Math.sin(this.wave * 0.55 + lane) * 0.06;
-      this.spawnEnemyBullet(laneCenter, PLAY_TOP - 18, Math.PI / 2 + wobble, speed * 0.58, 0xff4d4d, BULLET_RADIUS * 2.35);
+      this.spawnEnemyBullet(laneCenter, PLAY_TOP - 18, Math.PI / 2 + wobble, speed * 0.58, 0xff4d4d, BULLET_RADIUS * 2.35, 'final-gap-drop');
     }
 
     const markerX = PLAY_X + gapLane * laneWidth + laneWidth / 2;
@@ -1031,8 +1032,8 @@ class MainScene extends Phaser.Scene {
     const spin = this.wave * (0.42 + this.levelIndex * 0.08);
     for (let i = 0; i < arms; i++) {
       const angle = spin + (Math.PI * 2 * i) / arms;
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed + 25, i % 2 === 0 ? 0xffd166 : 0xc77dff, 9);
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle + Math.PI, speed * 0.78, 0x7cf7ff, 9);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed + 25, i % 2 === 0 ? 0xffd166 : 0xc77dff, 9, 'spiral-forward');
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle + Math.PI, speed * 0.78, 0x7cf7ff, 9, 'spiral-back');
     }
   }
 
@@ -1048,7 +1049,7 @@ class MainScene extends Phaser.Scene {
       const scatter = Phaser.Math.Between(-18, 18);
       const x = Phaser.Math.Clamp(laneCenter + scatter, PLAY_X + 42, PLAY_RIGHT - 42);
       const wobble = Math.sin(this.wave * 0.45 + lane) * 0.07;
-      this.spawnEnemyBullet(x, PLAY_TOP - 14, Math.PI / 2 + wobble, speed * 0.58, level.enemyColor, 12);
+      this.spawnEnemyBullet(x, PLAY_TOP - 14, Math.PI / 2 + wobble, speed * 0.58, level.enemyColor, 12, 'undertow-drop');
     }
 
     if (this.wave % 3 === 0) {
@@ -1068,7 +1069,7 @@ class MainScene extends Phaser.Scene {
       const t = count === 1 ? 0.5 : i / (count - 1);
       const angle = base + Phaser.Math.Linear(-spread, spread, t);
       const color = i % 3 === 0 ? level.enemyColor : i % 3 === 1 ? 0x7cf7ff : 0xffd166;
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed + i * 8, color, 9 + (i % 2));
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed + i * 8, color, 9 + (i % 2), 'prism-fan');
     }
 
     if (this.wave % 3 === 0) {
@@ -1163,7 +1164,7 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  private spawnEnemyBullet(x: number, y: number, angle: number, speed: number, color: number, radius = BULLET_RADIUS) {
+  private spawnEnemyBullet(x: number, y: number, angle: number, speed: number, color: number, radius = BULLET_RADIUS, debugId = 'enemy-bullet') {
     const visibleRadius = radius;
     const bullet = this.bullets.get(x, y, radius, color) as Phaser.GameObjects.Arc | null;
     if (!bullet) return undefined;
@@ -1175,8 +1176,11 @@ class MainScene extends Phaser.Scene {
     bullet.setBlendMode(Phaser.BlendModes.ADD);
     const hitRadius = visibleRadius * ENEMY_BULLET_HITBOX_SCALE;
     const hitOffset = visibleRadius - hitRadius;
+    bullet.setData('debugId', debugId);
     bullet.setData('visibleRadius', visibleRadius);
     bullet.setData('hitRadius', hitRadius);
+    bullet.setData('speed', speed);
+    bullet.setData('angleDeg', Math.round(Phaser.Math.RadToDeg(angle)));
     const body = bullet.body as Phaser.Physics.Arcade.Body;
     body.setCircle(hitRadius, hitOffset, hitOffset);
     body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
@@ -1625,6 +1629,7 @@ class MainScene extends Phaser.Scene {
     const graphics = this.debugHitboxGraphics;
     if (!graphics || !this.debugHitboxes) return;
 
+    this.clearDebugBulletLabels();
     graphics.clear();
     graphics.lineStyle(2, 0x00ff66, 0.85);
     for (const circle of PLAYER_HIT_CIRCLES) {
@@ -1636,15 +1641,42 @@ class MainScene extends Phaser.Scene {
       if (!bullet.active || !bullet.visible) continue;
       const visibleRadius = Number(bullet.getData('visibleRadius') || bullet.radius || BULLET_RADIUS);
       const hitRadius = Number(bullet.getData('hitRadius') || visibleRadius);
+      const debugId = String(bullet.getData('debugId') || 'enemy-bullet');
+      const speed = Math.round(Number(bullet.getData('speed') || 0));
+      const angleDeg = Number(bullet.getData('angleDeg') || 0);
 
       graphics.lineStyle(1, 0xffffff, 0.28);
       graphics.strokeCircle(bullet.x, bullet.y, visibleRadius);
       graphics.lineStyle(2, 0xff3355, 0.88);
       graphics.strokeCircle(bullet.x, bullet.y, hitRadius);
+      this.addDebugBulletLabel(bullet.x, bullet.y - visibleRadius - 12, `${debugId}\nr${visibleRadius}/h${hitRadius} v${speed} a${angleDeg}`);
     }
   }
 
+  private addDebugBulletLabel(x: number, y: number, label: string) {
+    const text = this.add.text(x, y, label, {
+      fontFamily: 'monospace',
+      fontSize: '9px',
+      color: '#fff7a8',
+      stroke: '#020712',
+      strokeThickness: 3,
+      align: 'center'
+    }).setOrigin(0.5).setDepth(41);
+    this.debugBulletLabels.push(text);
+  }
+
+  private clearDebugBulletLabels() {
+    this.debugBulletLabels.forEach((label) => label.destroy());
+    this.debugBulletLabels = [];
+  }
+
+  private clearDebugHitboxOverlay() {
+    this.debugHitboxGraphics?.clear();
+    this.clearDebugBulletLabels();
+  }
+
   private clearProjectiles() {
+    this.clearDebugHitboxOverlay();
     this.bullets?.clear(true, true);
     this.playerShots?.clear(true, true);
     this.clearPowerUps();
