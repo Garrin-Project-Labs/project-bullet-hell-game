@@ -388,7 +388,7 @@ class MainScene extends Phaser.Scene {
     this.movePlayer(delta);
     this.moveEnemy(time);
 
-    if (this.fireKey.isDown && time - this.lastPlayerFire > PLAYER_FIRE_MS) {
+    if (!this.levelSevenOrbPhaseActive && this.fireKey.isDown && time - this.lastPlayerFire > PLAYER_FIRE_MS) {
       this.firePlayerShot(time);
     }
 
@@ -802,7 +802,7 @@ class MainScene extends Phaser.Scene {
   private fireLevelSevenOrbVolley(volley: number) {
     if (!this.enemy) return;
     const count = LEVEL_SEVEN_ORB_COUNT;
-    const spin = Math.PI / 6 + volley * 0.18;
+    const spin = Math.PI / 6 + volley * 0.46;
     const speed = 62 + Math.min(14, volley * 0.8);
 
     for (let i = 0; i < count; i++) {
