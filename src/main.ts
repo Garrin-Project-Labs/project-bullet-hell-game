@@ -50,6 +50,17 @@ const LEADERBOARD_LIMIT = 10;
 const LEADERBOARD_NAME_LIMIT = 8;
 const LEADERBOARD_NAME_STORAGE_KEY = 'bulletHellLeaderboardName';
 const AUDIO_MUTED_STORAGE_KEY = 'bulletHellAudioMuted';
+// Audio is intentionally subtle/background. Master scales every SFX; per-sound
+// volumes are relative to it, so effective loudness stays low.
+const SFX_MASTER_VOLUME = 0.32;
+const SFX_VOLUMES: Record<string, number> = {
+  shoot: 0.16,
+  hit: 0.3,
+  explosion: 0.5,
+  damage: 0.55,
+  powerup: 0.5
+};
+const SYNTH_VOLUME_SCALE = 0.45;
 // Shared leaderboard endpoint backed by the Google Apps Script web app.
 const SHARED_LEADERBOARD_URL = import.meta.env.VITE_LEADERBOARD_URL || '';
 
@@ -279,6 +290,11 @@ class MainScene extends Phaser.Scene {
     this.load.svg('enemy-cruiser', 'assets/enemy-cruiser.svg', { width: 82, height: 82 });
     this.load.svg('enemy-orb', 'assets/enemy-orb.svg', { width: 82, height: 82 });
     this.load.svg('enemy-starblade', 'assets/enemy-starblade.svg', { width: 82, height: 82 });
+    this.load.audio('shoot', 'assets/audio/shoot.ogg');
+    this.load.audio('hit', 'assets/audio/hit.ogg');
+    this.load.audio('explosion', 'assets/audio/explosion.ogg');
+    this.load.audio('damage', 'assets/audio/damage.ogg');
+    this.load.audio('powerup', 'assets/audio/powerup.ogg');
   }
 
   create() {
@@ -295,6 +311,8 @@ class MainScene extends Phaser.Scene {
     this.victory = false;
     this.gameStarted = false;
     this.audioMuted = this.loadSavedMutePreference();
+    this.sound.volume = SFX_MASTER_VOLUME;
+    this.sound.mute = this.audioMuted;
     this.levelTransitioning = false;
     this.waitingForUpgradeChoice = false;
     this.enemyInvulnerableUntil = 0;
@@ -1463,7 +1481,7 @@ class MainScene extends Phaser.Scene {
       return;
     }
 
-    this.playTone(220 + this.levelIndex * 18, 0.045, 'triangle', 0.025);
+    this.playSfx('hit');
 
     if (this.shouldTriggerLevelFiveWall()) {
       this.startLevelFiveWallPhase();
@@ -1617,8 +1635,7 @@ class MainScene extends Phaser.Scene {
 
   private playEnemyExplosion(x: number, y: number, color: number) {
     this.enemy?.setVisible(false);
-    this.playTone(180, 0.12, 'sawtooth', 0.045);
-    this.playTone(90, 0.22, 'sine', 0.04, 0.04);
+    this.playSfx('explosion');
 
     for (let i = 0; i < 18; i++) {
       const angle = (Math.PI * 2 * i) / 18;
@@ -1671,7 +1688,7 @@ class MainScene extends Phaser.Scene {
   private damagePlayer() {
     this.hp--;
     this.invulnerableUntil = this.time.now + 1100;
-    this.playTone(130, 0.14, 'sawtooth', 0.04);
+    this.playSfx('damage');
     this.cameras.main.shake(120, 0.008);
     this.updateHud();
     if (this.hp <= 0) this.endGame();
@@ -1763,8 +1780,7 @@ class MainScene extends Phaser.Scene {
       this.hideImmunityRing();
     }
     this.updateHud();
-    this.playTone(kind === 'bio' ? 660 : 560, 0.08, 'sine', 0.04);
-    this.playTone(kind === 'bio' ? 990 : 840, 0.1, 'sine', 0.03, 0.06);
+    this.playSfx('powerup', kind === 'bio' ? 1 : 0.85);
   }
 
   private activateDebugBioShield(time: number) {
@@ -1853,7 +1869,7 @@ class MainScene extends Phaser.Scene {
       oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, endFrequency), start + duration);
     }
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(volume, start + 0.01);
+    gain.gain.exponentialRampToValueAtTime(volume * SYNTH_VOLUME_SCALE, start + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
     oscillator.connect(gain);
     gain.connect(this.audioContext.destination);
@@ -1861,17 +1877,23 @@ class MainScene extends Phaser.Scene {
     oscillator.stop(start + duration + 0.02);
   }
 
-  private playShootSound() {
+  private playSfx(key: string, volumeScale = 1) {
     if (this.audioMuted) return;
-    // Soft "pew": quick downward sweep, sine body + faint triangle harmonic, low volume.
-    this.playTone(620, 0.08, 'sine', 0.025, 0, 240);
-    this.playTone(1240, 0.05, 'triangle', 0.008, 0, 520);
+    if (!this.sound || !this.cache.audio.exists(key)) return;
+    const base = SFX_VOLUMES[key] ?? 0.4;
+    this.sound.play(key, { volume: base * volumeScale });
+  }
+
+  private playShootSound() {
+    // Real laser SFX, kept very quiet since it fires constantly.
+    this.playSfx('shoot');
   }
 
   private toggleMute() {
     this.audioMuted = !this.audioMuted;
     this.saveMutePreference(this.audioMuted);
     this.updateMuteText();
+    if (this.sound) this.sound.mute = this.audioMuted;
     if (this.audioMuted) {
       if (this.audioContext && this.audioContext.state === 'running') void this.audioContext.suspend();
     } else {
