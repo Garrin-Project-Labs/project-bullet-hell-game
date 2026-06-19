@@ -12,14 +12,16 @@ const PLAY_TOP = 88;
 const PLAYER_SPEED = 255;
 const PLAYER_SPEED_UPGRADE = 28;
 const PLAYER_RADIUS = 10;
-const PLAYER_HIT_ELLIPSE_X = 13;
-const PLAYER_HIT_ELLIPSE_Y = 17;
-const PLAYER_HIT_ELLIPSE_OFFSET_X = 1;
-const PLAYER_HIT_ELLIPSE_OFFSET_Y = 8;
-const PLAYER_HIT_ELLIPSE_ROTATION = -0.78;
+const PLAYER_HIT_CIRCLES = [
+  { x: -9, y: 1, radius: 7 },
+  { x: -1, y: 8, radius: 9 },
+  { x: 8, y: 14, radius: 7 }
+];
+const PLAYER_LASER_HALF_WIDTH = 18;
 const BULLET_RADIUS = 8;
 const MIN_ENEMY_BULLET_RADIUS = 8;
 const ENEMY_BULLET_HITBOX_SCALE = 1;
+const ENEMY_BULLET_STROKE_WIDTH = 3;
 const GRAZE_RADIUS = 20;
 const PLAYER_FIRE_MS = 170;
 const BASE_PLAYER_SHOT_SPEED = 440;
@@ -316,11 +318,8 @@ class MainScene extends Phaser.Scene {
     this.player = this.add.image(PLAY_CENTER, HEIGHT - 80, 'banana-boss').setScale(0.55);
     this.physics.add.existing(this.player);
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
-    playerBody.setSize(PLAYER_HIT_ELLIPSE_X * 2, PLAYER_HIT_ELLIPSE_Y * 2);
-    playerBody.setOffset(
-      40 + PLAYER_HIT_ELLIPSE_OFFSET_X - PLAYER_HIT_ELLIPSE_X,
-      40 + PLAYER_HIT_ELLIPSE_OFFSET_Y - PLAYER_HIT_ELLIPSE_Y
-    );
+    playerBody.setSize(44, 44);
+    playerBody.setOffset(18, 18);
     playerBody.setCollideWorldBounds(true);
 
     this.bullets = this.physics.add.group({ classType: Phaser.GameObjects.Arc, maxSize: 800 });
@@ -1141,8 +1140,7 @@ class MainScene extends Phaser.Scene {
 
   private damagePlayerWithLaser(laserX: number, laserWidth: number) {
     if (this.time.now < this.invulnerableUntil || this.gameOver || this.victory) return;
-    const playerHalfWidth = PLAYER_HIT_ELLIPSE_X;
-    if (Math.abs(this.player.x - laserX) <= laserWidth / 2 + playerHalfWidth) {
+    if (Math.abs(this.player.x - laserX) <= laserWidth / 2 + PLAYER_LASER_HALF_WIDTH) {
       this.damagePlayer();
     }
   }
@@ -1153,10 +1151,10 @@ class MainScene extends Phaser.Scene {
     if (!bullet) return undefined;
     bullet.setActive(true).setVisible(true).setData('grazed', false);
     bullet.setFillStyle(color, 1);
-    bullet.setStrokeStyle(3, 0xffffff, 0.95);
+    bullet.setStrokeStyle(ENEMY_BULLET_STROKE_WIDTH, 0xffffff, 0.95);
     bullet.setScale(visibleRadius / BULLET_RADIUS);
     bullet.setBlendMode(Phaser.BlendModes.ADD);
-    const hitRadius = visibleRadius * ENEMY_BULLET_HITBOX_SCALE;
+    const hitRadius = visibleRadius * ENEMY_BULLET_HITBOX_SCALE + ENEMY_BULLET_STROKE_WIDTH / 2;
     bullet.setData('visibleRadius', visibleRadius);
     bullet.setData('hitRadius', hitRadius);
     const body = bullet.body as Phaser.Physics.Arcade.Body;
@@ -1408,18 +1406,13 @@ class MainScene extends Phaser.Scene {
   }
 
   private isBulletTouchingBanana(bullet: Phaser.GameObjects.Arc) {
-    const dx = bullet.x - (this.player.x + PLAYER_HIT_ELLIPSE_OFFSET_X);
-    const dy = bullet.y - (this.player.y + PLAYER_HIT_ELLIPSE_OFFSET_Y);
-    const cos = Math.cos(PLAYER_HIT_ELLIPSE_ROTATION);
-    const sin = Math.sin(PLAYER_HIT_ELLIPSE_ROTATION);
-    const localX = dx * cos - dy * sin;
-    const localY = dx * sin + dy * cos;
     const radius = Number(bullet.getData('hitRadius') || BULLET_RADIUS);
-    const normalized =
-      (localX * localX) / Math.pow(PLAYER_HIT_ELLIPSE_X + radius, 2) +
-      (localY * localY) / Math.pow(PLAYER_HIT_ELLIPSE_Y + radius, 2);
 
-    return normalized <= 1;
+    return PLAYER_HIT_CIRCLES.some((circle) => {
+      const hitX = this.player.x + circle.x;
+      const hitY = this.player.y + circle.y;
+      return Phaser.Math.Distance.Between(bullet.x, bullet.y, hitX, hitY) <= radius + circle.radius;
+    });
   }
 
   private hitByBullet(bullet: Phaser.GameObjects.Arc) {
@@ -1614,12 +1607,9 @@ class MainScene extends Phaser.Scene {
 
     graphics.clear();
     graphics.lineStyle(2, 0x00ff66, 0.85);
-    graphics.strokeEllipse(
-      this.player.x + PLAYER_HIT_ELLIPSE_OFFSET_X,
-      this.player.y + PLAYER_HIT_ELLIPSE_OFFSET_Y,
-      PLAYER_HIT_ELLIPSE_X * 2,
-      PLAYER_HIT_ELLIPSE_Y * 2
-    );
+    for (const circle of PLAYER_HIT_CIRCLES) {
+      graphics.strokeCircle(this.player.x + circle.x, this.player.y + circle.y, circle.radius);
+    }
 
     for (const obj of this.bullets.getChildren()) {
       const bullet = obj as Phaser.GameObjects.Arc;
@@ -1628,7 +1618,7 @@ class MainScene extends Phaser.Scene {
       const hitRadius = Number(bullet.getData('hitRadius') || visibleRadius);
 
       graphics.lineStyle(1, 0xffffff, 0.28);
-      graphics.strokeCircle(bullet.x, bullet.y, visibleRadius);
+      graphics.strokeCircle(bullet.x, bullet.y, visibleRadius + ENEMY_BULLET_STROKE_WIDTH / 2);
       graphics.lineStyle(2, 0xff3355, 0.88);
       graphics.strokeCircle(bullet.x, bullet.y, hitRadius);
     }
