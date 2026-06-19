@@ -38,9 +38,9 @@ const LEVEL_FIVE_WALL_ROWS = 13;
 const LEVEL_FIVE_WALL_LANES = 10;
 const LEVEL_SEVEN_INDEX = 6;
 const LEVEL_SEVEN_PHASE_MS = 10000;
-const LEVEL_SEVEN_PHASE_FIRE_MS = 1800;
+const LEVEL_SEVEN_PHASE_FIRE_MS = 260;
 const LEVEL_SEVEN_PHASE_BULLET_RADIUS = 23;
-const LEVEL_SEVEN_ORB_COUNT = 6;
+const LEVEL_SEVEN_ORB_COUNT = 5;
 const FINAL_BOSS_INDEX = 9;
 const ENDLESS_INDEX = 10;
 const STORY_LEVEL_COUNT = 10;
@@ -824,12 +824,14 @@ class MainScene extends Phaser.Scene {
   private fireLevelSevenOrbVolley(volley: number) {
     if (!this.enemy) return;
     const count = LEVEL_SEVEN_ORB_COUNT;
-    const spin = Math.PI / 6 + volley * 0.46;
-    const speed = 62 + Math.min(14, volley * 0.8);
+    const spin = -Math.PI / 2 + volley * 0.38;
+    const spacing = 0.18;
+    const speed = 72;
 
     for (let i = 0; i < count; i++) {
-      const angle = spin + (Math.PI * 2 * i) / count;
-      this.spawnEnemyBullet(this.enemy.x, this.enemy.y, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS);
+      const offset = (i - (count - 1) / 2) * spacing;
+      const angle = spin + offset;
+      this.spawnEnemyBullet(this.enemy.x, this.enemy.y, angle, speed, 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS);
     }
   }
 
