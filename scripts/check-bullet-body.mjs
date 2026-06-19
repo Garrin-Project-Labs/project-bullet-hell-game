@@ -16,7 +16,8 @@ const methodExpectations = [
 const sourceExpectations = [
   ['H debug overlay labels bullet ids', 'addDebugBulletLabel'],
   ['fresh enemy bullet spawn bypass exists', 'private spawnFreshEnemyBullet'],
-  ['level 7 normal pattern bypasses group pool reuse', "'Phaser.GameObjects.Arc/full-circle/fresh'"],
+  ['level 7 normal pattern uses ellipse to isolate arc rendering', 'private spawnLevelSevenBossOrb'],
+  ['level 7 normal pattern reports ellipse asset type', "'Phaser.GameObjects.Ellipse/full-circle/fresh'"],
   ['level 7 normal pattern only uses large orb bullets', 'LEVEL_SEVEN_PHASE_BULLET_RADIUS'],
   ['final boss heavy pattern leaves a lane gap', 'private fireFinalBossGapPattern'],
   ['final boss skips the chosen gap lane', 'if (lane === gapLane) continue;'],

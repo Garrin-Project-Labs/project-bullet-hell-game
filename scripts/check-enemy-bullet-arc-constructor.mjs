@@ -28,6 +28,12 @@ if (!source.includes("bullet.setData('assetType', assetType)")) {
 if (!source.includes('private spawnFreshEnemyBullet')) {
   failures.push('No fresh-spawn bypass exists for isolating group pool reuse bugs');
 }
+if (!source.includes('private spawnLevelSevenBossOrb')) {
+  failures.push('Level 7 normal boss bullets do not have an isolated spawn path');
+}
+if (!source.includes('Phaser.GameObjects.Ellipse/full-circle/fresh')) {
+  failures.push('Level 7 normal boss bullets do not report isolated ellipse asset metadata');
+}
 if (!source.includes('level7-boss-large-orb')) {
   failures.push('Level 7 normal boss bullets are not labelled');
 }

@@ -324,7 +324,7 @@ class MainScene extends Phaser.Scene {
     this.playerShots = this.physics.add.group({ classType: Phaser.GameObjects.Rectangle, maxSize: 120 });
     this.powerUps = this.physics.add.group({ classType: Phaser.GameObjects.Arc, maxSize: 1 });
 
-    this.physics.add.overlap(this.player, this.bullets, (_, bullet) => this.checkPlayerBulletHit(bullet as Phaser.GameObjects.Arc));
+    this.physics.add.overlap(this.player, this.bullets, (_, bullet) => this.checkPlayerBulletHit(bullet as Phaser.GameObjects.Arc | Phaser.GameObjects.Ellipse));
     this.powerUpOverlap = this.physics.add.overlap(this.player, this.powerUps, (_, powerUp) => this.collectPowerUp(powerUp as Phaser.GameObjects.Arc));
 
     this.cursors = this.input.keyboard!.createCursorKeys();
@@ -836,7 +836,7 @@ class MainScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const t = count === 1 ? 0.5 : i / (count - 1);
       const angle = Math.PI / 2 + sway + Phaser.Math.Linear(-spread, spread, t);
-      this.spawnFreshEnemyBullet(this.enemy.x, this.enemy.y + 22, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS, 'level7-boss-large-orb');
+      this.spawnLevelSevenBossOrb(this.enemy.x, this.enemy.y + 22, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d);
     }
   }
 
@@ -1176,6 +1176,13 @@ class MainScene extends Phaser.Scene {
     return this.configureEnemyBullet(bullet, angle, speed, color, radius, debugId, 'Phaser.GameObjects.Arc/full-circle/fresh');
   }
 
+  private spawnLevelSevenBossOrb(x: number, y: number, angle: number, speed: number, color: number) {
+    const radius = LEVEL_SEVEN_PHASE_BULLET_RADIUS;
+    const orb = this.add.ellipse(x, y, radius * 2, radius * 2, color, 1);
+    this.bullets.add(orb);
+    return this.configureEllipseEnemyBullet(orb, angle, speed, color, radius, 'level7-boss-large-orb', 'Phaser.GameObjects.Ellipse/full-circle/fresh');
+  }
+
   private configureEnemyBullet(bullet: Phaser.GameObjects.Arc, angle: number, speed: number, color: number, radius: number, debugId: string, assetType: string) {
     const visibleRadius = radius;
     bullet.setActive(true).setVisible(true).setData('grazed', false);
@@ -1186,6 +1193,20 @@ class MainScene extends Phaser.Scene {
     bullet.setFillStyle(color, 1);
     bullet.setStrokeStyle(ENEMY_BULLET_STROKE_WIDTH, 0xffffff, 0.95);
     bullet.setBlendMode(Phaser.BlendModes.ADD);
+    return this.configureEnemyBulletPhysics(bullet, angle, speed, radius, debugId, assetType);
+  }
+
+  private configureEllipseEnemyBullet(bullet: Phaser.GameObjects.Ellipse, angle: number, speed: number, color: number, radius: number, debugId: string, assetType: string) {
+    bullet.setActive(true).setVisible(true).setData('grazed', false);
+    bullet.setScale(1);
+    bullet.setDisplaySize(radius * 2, radius * 2);
+    bullet.setFillStyle(color, 1);
+    bullet.setStrokeStyle(0, color, 0);
+    bullet.setBlendMode(Phaser.BlendModes.ADD);
+    return this.configureEnemyBulletPhysics(bullet, angle, speed, radius, debugId, assetType);
+  }
+
+  private configureEnemyBulletPhysics(bullet: Phaser.GameObjects.Arc | Phaser.GameObjects.Ellipse, angle: number, speed: number, visibleRadius: number, debugId: string, assetType: string) {
     const hitRadius = visibleRadius * ENEMY_BULLET_HITBOX_SCALE;
     const hitOffset = visibleRadius - hitRadius;
     bullet.setData('debugId', debugId);
@@ -1436,13 +1457,13 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  private checkPlayerBulletHit(bullet: Phaser.GameObjects.Arc) {
+  private checkPlayerBulletHit(bullet: Phaser.GameObjects.Arc | Phaser.GameObjects.Ellipse) {
     if (this.time.now < this.invulnerableUntil || this.gameOver || this.victory) return;
     if (!this.isBulletTouchingBanana(bullet)) return;
     this.hitByBullet(bullet);
   }
 
-  private isBulletTouchingBanana(bullet: Phaser.GameObjects.Arc) {
+  private isBulletTouchingBanana(bullet: Phaser.GameObjects.Arc | Phaser.GameObjects.Ellipse) {
     const radius = Number(bullet.getData('hitRadius') || BULLET_RADIUS);
 
     return PLAYER_HIT_CIRCLES.some((circle) => {
@@ -1452,7 +1473,7 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  private hitByBullet(bullet: Phaser.GameObjects.Arc) {
+  private hitByBullet(bullet: Phaser.GameObjects.Arc | Phaser.GameObjects.Ellipse) {
     bullet.destroy();
     this.damagePlayer();
   }
@@ -1467,7 +1488,7 @@ class MainScene extends Phaser.Scene {
 
   private checkGrazes() {
     for (const obj of this.bullets.getChildren()) {
-      const bullet = obj as Phaser.GameObjects.Arc;
+      const bullet = obj as Phaser.GameObjects.Arc | Phaser.GameObjects.Ellipse;
       if (!bullet.active || bullet.getData('grazed')) continue;
       const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, bullet.x, bullet.y);
       const radius = Number(bullet.getData('hitRadius') || BULLET_RADIUS);
@@ -1650,9 +1671,10 @@ class MainScene extends Phaser.Scene {
     }
 
     for (const obj of this.bullets.getChildren()) {
-      const bullet = obj as Phaser.GameObjects.Arc;
+      const bullet = obj as Phaser.GameObjects.Arc | Phaser.GameObjects.Ellipse;
       if (!bullet.active || !bullet.visible) continue;
-      const visibleRadius = Number(bullet.getData('visibleRadius') || bullet.radius || BULLET_RADIUS);
+      const fallbackRadius = bullet instanceof Phaser.GameObjects.Arc ? bullet.radius : bullet.displayWidth / 2;
+      const visibleRadius = Number(bullet.getData('visibleRadius') || fallbackRadius || BULLET_RADIUS);
       const hitRadius = Number(bullet.getData('hitRadius') || visibleRadius);
       const debugId = String(bullet.getData('debugId') || 'enemy-bullet');
       const assetType = String(bullet.getData('assetType') || 'unknown-asset');
