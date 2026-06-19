@@ -10,7 +10,9 @@ const methodExpectations = [
   ['setCircle receives explicit offset', 'body.setCircle(hitRadius, hitOffset, hitOffset);']
 ];
 const sourceExpectations = [
-  ['level 7 normal pattern uses small bullets', 'LEVEL_SEVEN_SMALL_BULLET_RADIUS'],
+  ['level 7 normal pattern only uses large orb bullets', 'LEVEL_SEVEN_PHASE_BULLET_RADIUS'],
+  ['final boss heavy pattern leaves a lane gap', 'private fireFinalBossGapPattern'],
+  ['final boss skips the chosen gap lane', 'if (lane === gapLane) continue;'],
   ['world bounds start at playable top border', 'this.physics.world.setBounds(PLAY_X, PLAY_TOP, GAME_WIDTH, HEIGHT - PLAY_TOP);'],
   ['player body uses full sprite bounds for world collision', 'playerBody.setSize(80, 80);']
 ];
@@ -28,4 +30,4 @@ for (const [label, needle] of sourceExpectations) {
   }
 }
 if (!ok) process.exit(1);
-console.log('PASS: enemy bullet visual radius and physics hitbox are reset together');
+console.log('PASS: bullet sizing, level 7 large-orb-only pattern, and final boss gap lane are in place');

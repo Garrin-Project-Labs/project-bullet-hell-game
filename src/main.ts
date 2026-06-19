@@ -40,7 +40,6 @@ const LEVEL_FIVE_WALL_LANES = 10;
 const LEVEL_SEVEN_INDEX = 6;
 const LEVEL_SEVEN_PHASE_MS = 10000;
 const LEVEL_SEVEN_PHASE_FIRE_MS = 260;
-const LEVEL_SEVEN_SMALL_BULLET_RADIUS = 13;
 const LEVEL_SEVEN_PHASE_BULLET_RADIUS = 23;
 const LEVEL_SEVEN_ORB_COUNT = 5;
 const FINAL_BOSS_INDEX = 9;
@@ -836,7 +835,7 @@ class MainScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const t = count === 1 ? 0.5 : i / (count - 1);
       const angle = Math.PI / 2 + sway + Phaser.Math.Linear(-spread, spread, t);
-      this.spawnEnemyBullet(this.enemy.x, this.enemy.y + 22, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d, LEVEL_SEVEN_SMALL_BULLET_RADIUS);
+      this.spawnEnemyBullet(this.enemy.x, this.enemy.y + 22, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS);
     }
   }
 
@@ -990,6 +989,11 @@ class MainScene extends Phaser.Scene {
   }
 
   private fireHeavyPattern(level: LevelConfig, speed: number) {
+    if (this.isFinalBossLevel()) {
+      this.fireFinalBossGapPattern(level, speed);
+      return;
+    }
+
     const lanes = this.levelIndex < 3 ? [0] : this.levelIndex < 6 ? [-38, 38] : [-56, 0, 56];
     for (const offset of lanes) {
       const wobble = Math.sin((this.wave + offset) * 0.8) * 0.08;
@@ -1000,6 +1004,26 @@ class MainScene extends Phaser.Scene {
       const aimed = Phaser.Math.Angle.Between(this.enemy!.x, this.enemy!.y, this.player.x, this.player.y);
       this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, aimed, speed * 0.85, 0xfff7a8, BULLET_RADIUS * 1.85);
     }
+  }
+
+  private fireFinalBossGapPattern(level: LevelConfig, speed: number) {
+    const laneCount = 6;
+    const laneWidth = GAME_WIDTH / laneCount;
+    const playerLane = Phaser.Math.Clamp(Math.floor((this.player.x - PLAY_X) / laneWidth), 0, laneCount - 1);
+    const gapLane = Phaser.Math.Clamp(playerLane + Phaser.Math.Between(-1, 1), 0, laneCount - 1);
+
+    for (let lane = 0; lane < laneCount; lane++) {
+      if (lane === gapLane) continue;
+      const laneCenter = PLAY_X + lane * laneWidth + laneWidth / 2;
+      const wobble = Math.sin(this.wave * 0.55 + lane) * 0.06;
+      this.spawnEnemyBullet(laneCenter, PLAY_TOP - 18, Math.PI / 2 + wobble, speed * 0.58, 0xff4d4d, BULLET_RADIUS * 2.35);
+    }
+
+    const markerX = PLAY_X + gapLane * laneWidth + laneWidth / 2;
+    const gapMarker = this.add.rectangle(markerX, PLAY_TOP + 22, laneWidth - 22, 6, level.enemyColor, 0.72)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(17);
+    this.tweens.add({ targets: gapMarker, alpha: 0, duration: 340, onComplete: () => gapMarker.destroy() });
   }
 
   private fireSpiralPattern(level: LevelConfig, speed: number) {
