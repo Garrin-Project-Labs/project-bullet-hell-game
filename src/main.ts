@@ -23,8 +23,9 @@ const ENEMY_BULLET_HITBOX_SCALE = 1;
 const ENEMY_BULLET_STROKE_WIDTH = 3;
 const GRAZE_RADIUS = 20;
 const PLAYER_FIRE_MS = 170;
+const PLAYER_FIRE_RATE_UPGRADE = 0.87; // each fire-rate upgrade ≈ +15% shots/sec (lower delay)
+const MIN_PLAYER_FIRE_MS = 70; // floor so stacked upgrades can't break firing
 const BASE_PLAYER_SHOT_SPEED = 440;
-const BULLET_SPEED_UPGRADE = 90;
 const BULLET_SIZE_UPGRADE = 4;
 const SPREAD_CHANCE_UPGRADE = 0.12;
 const POWER_UP_DROP_CHANCE = 0.03;
@@ -272,7 +273,7 @@ class MainScene extends Phaser.Scene {
   private lastPowerUpSpawn = -POWER_UP_MIN_GAP_MS;
   private enemyMovePattern: EnemyMovePattern = 'sway';
   private enemyMoveSeed = 0;
-  private bulletSpeedUpgrades = 0;
+  private fireRateUpgrades = 0;
   private bulletSizeUpgrades = 0;
   private spreadChanceUpgrades = 0;
   private moveSpeedUpgrades = 0;
@@ -326,7 +327,7 @@ class MainScene extends Phaser.Scene {
     this.lastPowerUpSpawn = -POWER_UP_MIN_GAP_MS;
     this.enemyMovePattern = 'sway';
     this.enemyMoveSeed = 0;
-    this.bulletSpeedUpgrades = 0;
+    this.fireRateUpgrades = 0;
     this.bulletSizeUpgrades = 0;
     this.spreadChanceUpgrades = 0;
     this.moveSpeedUpgrades = 0;
@@ -1424,13 +1425,14 @@ class MainScene extends Phaser.Scene {
   }
 
   private firePlayerShot(time: number) {
-    const fireDelay = this.activePowerUp === 'rapid' ? PLAYER_FIRE_MS * 0.65 : PLAYER_FIRE_MS;
+    const upgradedFireMs = PLAYER_FIRE_MS * Math.pow(PLAYER_FIRE_RATE_UPGRADE, this.fireRateUpgrades);
+    const fireDelay = Math.max(MIN_PLAYER_FIRE_MS, this.activePowerUp === 'rapid' ? upgradedFireMs * 0.65 : upgradedFireMs);
     if (time - this.lastPlayerFire < fireDelay) return;
     this.lastPlayerFire = time;
 
     const width = 8 + this.bulletSizeUpgrades * BULLET_SIZE_UPGRADE + (this.activePowerUp === 'big' ? 8 : 0);
     const height = 22 + this.bulletSizeUpgrades * (BULLET_SIZE_UPGRADE + 2) + (this.activePowerUp === 'big' ? 12 : 0);
-    const speed = -(BASE_PLAYER_SHOT_SPEED + this.bulletSpeedUpgrades * BULLET_SPEED_UPGRADE + (this.activePowerUp === 'rapid' ? 140 : 0));
+    const speed = -(BASE_PLAYER_SHOT_SPEED + (this.activePowerUp === 'rapid' ? 140 : 0));
     const spreadChance = Math.min(0.45, this.spreadChanceUpgrades * SPREAD_CHANCE_UPGRADE);
     const shouldSpread = this.activePowerUp === 'spread' || Phaser.Math.FloatBetween(0, 1) < spreadChance;
 
@@ -1569,7 +1571,7 @@ class MainScene extends Phaser.Scene {
 
     const overlay = this.add.container(PLAY_CENTER, HEIGHT / 2 + 12, [panelGlow, panel, title, hint]);
     const choices: Array<{ kind: UpgradeKind; title: string; subtitle: string; description: string; color: number; icon: string }> = [
-      { kind: 'speed', title: 'Hotter Shots', subtitle: 'Laser Core', description: '+90 projectile speed', color: 0x7cf7ff, icon: '➜' },
+      { kind: 'speed', title: 'Faster Fire', subtitle: 'Rapid Core', description: '+15% fire rate', color: 0x7cf7ff, icon: '➜' },
       { kind: 'size', title: 'Heavy Peel', subtitle: 'Wide Rounds', description: '+4 shot size', color: 0xffd166, icon: '●' },
       { kind: 'spreadChance', title: 'Forked Fire', subtitle: 'Chaos Split', description: '+12% split chance', color: 0xc77dff, icon: '✦' },
       { kind: 'moveSpeed', title: 'Slipstream', subtitle: 'Nimble Drift', description: '+28 move speed', color: 0x9cff6a, icon: '◆' }
@@ -1626,7 +1628,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private applyUpgrade(kind: UpgradeKind) {
-    if (kind === 'speed') this.bulletSpeedUpgrades++;
+    if (kind === 'speed') this.fireRateUpgrades++;
     if (kind === 'size') this.bulletSizeUpgrades++;
     if (kind === 'spreadChance') this.spreadChanceUpgrades++;
     if (kind === 'moveSpeed') this.moveSpeedUpgrades++;
@@ -2053,7 +2055,7 @@ class MainScene extends Phaser.Scene {
     this.updateBossHealthBar(level);
     this.updatePowerUpHud();
     const spreadPct = Math.round(Math.min(0.45, this.spreadChanceUpgrades * SPREAD_CHANCE_UPGRADE) * 100);
-    this.upgradeText?.setText(`SHOT SPD  +${this.bulletSpeedUpgrades}\nSHOT SIZE +${this.bulletSizeUpgrades}\nMOVE SPD  +${this.moveSpeedUpgrades}\nSPREAD    ${spreadPct}%`);
+    this.upgradeText?.setText(`FIRE RATE +${this.fireRateUpgrades}\nSHOT SIZE +${this.bulletSizeUpgrades}\nMOVE SPD  +${this.moveSpeedUpgrades}\nSPREAD    ${spreadPct}%`);
   }
 
   private updateBossHealthBar(level: LevelConfig) {
