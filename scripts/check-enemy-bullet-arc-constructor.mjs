@@ -13,14 +13,23 @@ if (body.includes('this.bullets.get(x, y, radius, color)')) {
 if (!body.includes('this.bullets.get(x, y, radius, 0, 360, false, color, 1)')) {
   failures.push('Arc pool creation does not use full-circle constructor args');
 }
-if (!body.includes('bullet.setStartAngle(0, false);')) {
-  failures.push('Reused Arc bullets do not reset start angle');
+if (!source.includes('private configureEnemyBullet')) {
+  failures.push('Enemy bullet setup is not centralized');
 }
-if (!body.includes('bullet.setEndAngle(360, false);')) {
-  failures.push('Reused Arc bullets do not reset end angle');
+if (!source.includes('bullet.setStartAngle(0, false);')) {
+  failures.push('Arc bullets do not reset start angle');
 }
-if (!body.includes("bullet.setData('assetType', 'Phaser.GameObjects.Arc/full-circle')")) {
+if (!source.includes('bullet.setEndAngle(360, false);')) {
+  failures.push('Arc bullets do not reset end angle');
+}
+if (!source.includes("bullet.setData('assetType', assetType)")) {
   failures.push('Debug metadata does not identify bullet asset type');
+}
+if (!source.includes('private spawnFreshEnemyBullet')) {
+  failures.push('No fresh-spawn bypass exists for isolating group pool reuse bugs');
+}
+if (!source.includes('level7-boss-large-orb')) {
+  failures.push('Level 7 normal boss bullets are not labelled');
 }
 
 for (const failure of failures) console.error('FAIL:', failure);

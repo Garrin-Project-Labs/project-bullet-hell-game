@@ -836,7 +836,7 @@ class MainScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const t = count === 1 ? 0.5 : i / (count - 1);
       const angle = Math.PI / 2 + sway + Phaser.Math.Linear(-spread, spread, t);
-      this.spawnEnemyBullet(this.enemy.x, this.enemy.y + 22, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS, 'level7-boss-large-orb');
+      this.spawnFreshEnemyBullet(this.enemy.x, this.enemy.y + 22, angle, speed, i % 2 === 0 ? 0xffe066 : 0xff8f4d, LEVEL_SEVEN_PHASE_BULLET_RADIUS, 'level7-boss-large-orb');
     }
   }
 
@@ -1165,9 +1165,19 @@ class MainScene extends Phaser.Scene {
   }
 
   private spawnEnemyBullet(x: number, y: number, angle: number, speed: number, color: number, radius = BULLET_RADIUS, debugId = 'enemy-bullet') {
-    const visibleRadius = radius;
     const bullet = this.bullets.get(x, y, radius, 0, 360, false, color, 1) as Phaser.GameObjects.Arc | null;
     if (!bullet) return undefined;
+    return this.configureEnemyBullet(bullet, angle, speed, color, radius, debugId, 'Phaser.GameObjects.Arc/full-circle/group-pool');
+  }
+
+  private spawnFreshEnemyBullet(x: number, y: number, angle: number, speed: number, color: number, radius = BULLET_RADIUS, debugId = 'enemy-bullet') {
+    const bullet = this.add.circle(x, y, radius, color, 1);
+    this.bullets.add(bullet);
+    return this.configureEnemyBullet(bullet, angle, speed, color, radius, debugId, 'Phaser.GameObjects.Arc/full-circle/fresh');
+  }
+
+  private configureEnemyBullet(bullet: Phaser.GameObjects.Arc, angle: number, speed: number, color: number, radius: number, debugId: string, assetType: string) {
+    const visibleRadius = radius;
     bullet.setActive(true).setVisible(true).setData('grazed', false);
     bullet.setScale(1);
     bullet.setRadius(visibleRadius);
@@ -1179,7 +1189,7 @@ class MainScene extends Phaser.Scene {
     const hitRadius = visibleRadius * ENEMY_BULLET_HITBOX_SCALE;
     const hitOffset = visibleRadius - hitRadius;
     bullet.setData('debugId', debugId);
-    bullet.setData('assetType', 'Phaser.GameObjects.Arc/full-circle');
+    bullet.setData('assetType', assetType);
     bullet.setData('visibleRadius', visibleRadius);
     bullet.setData('hitRadius', hitRadius);
     bullet.setData('speed', speed);

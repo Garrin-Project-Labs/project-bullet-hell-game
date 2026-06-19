@@ -8,12 +8,15 @@ const methodExpectations = [
   ['group get uses full-circle arc constructor args', 'this.bullets.get(x, y, radius, 0, 360, false, color, 1)'],
   ['body circle offset centers on resized arc', 'const hitOffset = visibleRadius - hitRadius;'],
   ['setCircle receives explicit offset', 'body.setCircle(hitRadius, hitOffset, hitOffset);'],
+  ['pooled enemy bullets use centralized setup', 'return this.configureEnemyBullet(bullet, angle, speed, color, radius, debugId'],
   ['enemy bullets store debug ids', "bullet.setData('debugId', debugId);"],
-  ['enemy bullets store asset type for debug labels', "bullet.setData('assetType', 'Phaser.GameObjects.Arc/full-circle')"],
+  ['enemy bullets store asset type for debug labels', "bullet.setData('assetType', assetType)"],
   ['enemy bullets store speed for debug labels', "bullet.setData('speed', speed);"]
 ];
 const sourceExpectations = [
   ['H debug overlay labels bullet ids', 'addDebugBulletLabel'],
+  ['fresh enemy bullet spawn bypass exists', 'private spawnFreshEnemyBullet'],
+  ['level 7 normal pattern bypasses group pool reuse', "'Phaser.GameObjects.Arc/full-circle/fresh'"],
   ['level 7 normal pattern only uses large orb bullets', 'LEVEL_SEVEN_PHASE_BULLET_RADIUS'],
   ['final boss heavy pattern leaves a lane gap', 'private fireFinalBossGapPattern'],
   ['final boss skips the chosen gap lane', 'if (lane === gapLane) continue;'],
