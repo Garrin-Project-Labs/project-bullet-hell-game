@@ -31,6 +31,7 @@ const POWER_UP_DROP_CHANCE = 0.03;
 const POWER_UP_TTL_MS = 3000;
 const POWER_UP_DURATION_MS = 7000;
 const BIO_POWER_UP_DURATION_MS = 5000;
+const DEBUG_BIO_SHIELD_MS = 60 * 60 * 1000;
 const BIO_POWER_UP_WEIGHT = 0.12;
 const POWER_UP_MIN_GAP_MS = 4000;
 const ATTACK_PATTERN_MS = 5000;
@@ -255,6 +256,7 @@ class MainScene extends Phaser.Scene {
   private spreadChanceUpgrades = 0;
   private moveSpeedUpgrades = 0;
   private debugHitboxes = false;
+  private debugBioShieldActive = false;
 
   constructor() {
     super('main');
@@ -399,9 +401,15 @@ class MainScene extends Phaser.Scene {
     if (!this.leaderboardNameEntryActive && Phaser.Input.Keyboard.JustDown(this.wasd.H)) {
       this.debugHitboxes = !this.debugHitboxes;
       this.debugHitboxGraphics?.setVisible(this.debugHitboxes);
-      this.debugHitboxText?.setText(this.debugHitboxes ? 'H: hitboxes ON' : 'H: hitboxes');
-      if (!this.debugHitboxes) this.clearDebugHitboxOverlay();
+      this.debugHitboxText?.setText(this.debugHitboxes ? 'H: hitboxes ON + BIO' : 'H: hitboxes');
+      if (this.debugHitboxes) {
+        this.activateDebugBioShield(time);
+      } else {
+        this.clearDebugHitboxOverlay();
+        this.deactivateDebugBioShield();
+      }
     }
+    if (this.debugHitboxes) this.refreshDebugBioShield(time);
     if (this.gameOver || this.victory || this.levelTransitioning || this.waitingForUpgradeChoice || !this.enemy) return;
 
     this.movePlayer(delta);
@@ -1558,16 +1566,48 @@ class MainScene extends Phaser.Scene {
   private collectPowerUp(powerUp: Phaser.GameObjects.Arc) {
     const kind = powerUp.getData('kind') as PowerUpKind;
     this.destroyPowerUp(powerUp);
+    this.applyPowerUp(kind, kind === 'bio' ? BIO_POWER_UP_DURATION_MS : POWER_UP_DURATION_MS);
+    this.spawnPowerUpText(kind);
+  }
+
+  private applyPowerUp(kind: PowerUpKind, durationMs: number) {
     this.activePowerUp = kind;
-    this.powerUpUntil = this.time.now + (kind === 'bio' ? BIO_POWER_UP_DURATION_MS : POWER_UP_DURATION_MS);
+    this.powerUpUntil = this.time.now + durationMs;
     if (kind === 'bio') {
       this.invulnerableUntil = Math.max(this.invulnerableUntil, this.powerUpUntil);
       this.showImmunityRing();
     } else {
       this.hideImmunityRing();
     }
-    this.spawnPowerUpText(kind);
     this.updateHud();
+  }
+
+  private activateDebugBioShield(time: number) {
+    this.debugBioShieldActive = true;
+    this.applyPowerUp('bio', DEBUG_BIO_SHIELD_MS);
+    this.powerUpUntil = time + DEBUG_BIO_SHIELD_MS;
+    this.invulnerableUntil = this.powerUpUntil;
+    this.spawnPowerUpText('bio');
+  }
+
+  private refreshDebugBioShield(time: number) {
+    if (!this.debugBioShieldActive || this.activePowerUp !== 'bio' || this.powerUpUntil - time > 1000) return;
+    this.powerUpUntil = time + DEBUG_BIO_SHIELD_MS;
+    this.invulnerableUntil = this.powerUpUntil;
+    this.showImmunityRing();
+    this.updateHud();
+  }
+
+  private deactivateDebugBioShield() {
+    if (!this.debugBioShieldActive) return;
+    this.debugBioShieldActive = false;
+    if (this.activePowerUp === 'bio') {
+      this.activePowerUp = undefined;
+      this.powerUpUntil = 0;
+      this.invulnerableUntil = this.time.now;
+      this.hideImmunityRing();
+      this.updateHud();
+    }
   }
 
   private destroyPowerUp(powerUp: Phaser.GameObjects.Arc) {
@@ -1629,6 +1669,10 @@ class MainScene extends Phaser.Scene {
     if (!this.activePowerUp) return;
 
     if (time >= this.powerUpUntil) {
+      if (this.debugBioShieldActive && this.debugHitboxes) {
+        this.refreshDebugBioShield(time);
+        return;
+      }
       this.activePowerUp = undefined;
       this.powerUpUntil = 0;
       this.hideImmunityRing();
