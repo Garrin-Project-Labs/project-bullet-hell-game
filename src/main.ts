@@ -620,12 +620,6 @@ class MainScene extends Phaser.Scene {
     const level = this.currentLevelConfig();
     if (!this.enemy || this.levelTransitioning) return;
 
-    if (this.isLevelSevenBoss()) {
-      this.fireLevelSevenBigOrbPattern(level);
-      return;
-    }
-
-    const pattern = this.currentAttackPattern();
     const base = Phaser.Math.Angle.Between(this.enemy.x, this.enemy.y, this.player.x, this.player.y);
     const speed = level.bulletSpeed + Math.min(25, this.score * 0.35);
 
@@ -633,19 +627,48 @@ class MainScene extends Phaser.Scene {
       this.fireFinalBossLaser();
     }
 
-    switch (pattern) {
-      case 'ring':
+    this.fireLevelPattern(level, base, speed);
+  }
+
+  private fireLevelPattern(level: LevelConfig, base: number, speed: number) {
+    if (this.isEndlessLevel()) {
+      this.fireEndlessPattern(level, base, speed);
+      return;
+    }
+
+    switch (this.levelIndex) {
+      case 0:
         this.fireRingPattern(level, base, speed);
         break;
-      case 'burst':
+      case 1:
+        this.fireAimedNeedlePattern(level, base, speed);
+        break;
+      case 2:
         this.fireBurstPattern(level, base, speed);
         break;
-      case 'heavy':
-        this.fireHeavyPattern(level, speed);
+      case 3:
+        this.fireCrosshatchPattern(level, speed);
         break;
-      case 'spiral':
+      case 4:
+        this.fireBloomPattern(level, speed);
+        break;
+      case 5:
         this.fireSpiralPattern(level, speed);
         break;
+      case 6:
+        this.fireLevelSevenBigOrbPattern(level);
+        break;
+      case 7:
+        this.fireUndertowPattern(level, base, speed);
+        break;
+      case 8:
+        this.firePrismPattern(level, base, speed);
+        break;
+      case 9:
+        this.fireHeavyPattern(level, speed);
+        break;
+      default:
+        this.fireEndlessPattern(level, base, speed);
     }
   }
 
@@ -884,6 +907,22 @@ class MainScene extends Phaser.Scene {
     }
   }
 
+  private fireAimedNeedlePattern(level: LevelConfig, base: number, speed: number) {
+    const fanCount = 3 + Math.floor(this.wave % 3);
+    const spread = 0.18 + this.levelIndex * 0.025;
+
+    for (let i = 0; i < fanCount; i++) {
+      const t = fanCount === 1 ? 0.5 : i / (fanCount - 1);
+      const angle = base + Phaser.Math.Linear(-spread, spread, t);
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 20, angle, speed + 42, level.enemyColor, 8);
+    }
+
+    if (this.wave % 3 === 0) {
+      const side = this.wave % 2 === 0 ? -1 : 1;
+      this.spawnEnemyBullet(this.enemy!.x + side * 34, this.enemy!.y + 18, base + side * 0.38, speed * 0.82, 0x9cff6a, 10);
+    }
+  }
+
   private fireBurstPattern(level: LevelConfig, base: number, speed: number) {
     const fanCount = Math.min(8, 4 + Math.floor(this.levelIndex / 2));
     const spread = 0.55 + Math.min(0.45, this.levelIndex * 0.05);
@@ -897,6 +936,39 @@ class MainScene extends Phaser.Scene {
       for (let i = 0; i < 4; i++) {
         this.spawnEnemyBullet(this.enemy!.x + side * 26, this.enemy!.y + 16, base + side * (0.35 + i * 0.12), speed + 35, 0xfff06a, 9);
       }
+    }
+  }
+
+  private fireCrosshatchPattern(level: LevelConfig, speed: number) {
+    const laneCount = 4 + Math.floor(this.levelIndex / 4);
+    const direction = this.wave % 2 === 0 ? 1 : -1;
+    const startX = direction > 0 ? PLAY_X + 24 : PLAY_RIGHT - 24;
+    const angle = direction > 0 ? 0.58 : Math.PI - 0.58;
+
+    for (let i = 0; i < laneCount; i++) {
+      const y = PLAY_TOP + 38 + i * 72;
+      this.spawnEnemyBullet(startX, y, angle, speed * 0.72, i % 2 === 0 ? level.enemyColor : 0xff6b35, 10);
+    }
+
+    if (this.wave % 3 === 0) {
+      this.fireRingPattern(level, Math.PI / 2, speed * 0.75);
+    }
+  }
+
+  private fireBloomPattern(level: LevelConfig, speed: number) {
+    const count = level.bulletCount + Math.min(3, Math.floor(this.wave / 5));
+    const spin = this.wave * level.spin * 1.4;
+    const pulse = this.wave % 2 === 0 ? 0 : Math.PI / count;
+
+    for (let i = 0; i < count; i++) {
+      const angle = spin + pulse + (Math.PI * 2 * i) / count;
+      const radius = i % 3 === 0 ? 12 : 9;
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed * 0.86, level.enemyColor, radius);
+    }
+
+    if (this.wave % 4 === 0) {
+      const aimed = Phaser.Math.Angle.Between(this.enemy!.x, this.enemy!.y, this.player.x, this.player.y);
+      this.fireBurstPattern(level, aimed, speed * 0.9);
     }
   }
 
@@ -920,6 +992,53 @@ class MainScene extends Phaser.Scene {
       const angle = spin + (Math.PI * 2 * i) / arms;
       this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed + 25, i % 2 === 0 ? 0xffd166 : 0xc77dff, 9);
       this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle + Math.PI, speed * 0.78, 0x7cf7ff, 9);
+    }
+  }
+
+  private fireUndertowPattern(level: LevelConfig, base: number, speed: number) {
+    const laneCount = 5;
+    const drift = Math.sin(this.wave * 0.65) * 34;
+
+    for (let i = 0; i < laneCount; i++) {
+      const x = PLAY_X + 90 + i * ((GAME_WIDTH - 180) / (laneCount - 1)) + drift;
+      const wobble = Math.sin(this.wave * 0.45 + i) * 0.18;
+      this.spawnEnemyBullet(Phaser.Math.Clamp(x, PLAY_X + 42, PLAY_RIGHT - 42), PLAY_TOP - 14, Math.PI / 2 + wobble, speed * 0.7, level.enemyColor, 12);
+    }
+
+    if (this.wave % 2 === 0) {
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base, speed * 0.95, 0x7cf7ff, 10);
+    }
+  }
+
+  private firePrismPattern(level: LevelConfig, base: number, speed: number) {
+    const count = Math.min(9, 5 + Math.floor(this.wave % 5));
+    const spread = 0.85;
+
+    for (let i = 0; i < count; i++) {
+      const t = count === 1 ? 0.5 : i / (count - 1);
+      const angle = base + Phaser.Math.Linear(-spread, spread, t);
+      const color = i % 3 === 0 ? level.enemyColor : i % 3 === 1 ? 0x7cf7ff : 0xffd166;
+      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 18, angle, speed + i * 8, color, 9 + (i % 2));
+    }
+
+    if (this.wave % 3 === 0) {
+      this.fireSpiralPattern(level, speed * 0.82);
+    }
+  }
+
+  private fireEndlessPattern(level: LevelConfig, base: number, speed: number) {
+    switch (this.wave % 4) {
+      case 0:
+        this.firePrismPattern(level, base, speed);
+        break;
+      case 1:
+        this.fireSpiralPattern(level, speed);
+        break;
+      case 2:
+        this.fireHeavyPattern(level, speed);
+        break;
+      default:
+        this.fireBloomPattern(level, speed);
     }
   }
 
