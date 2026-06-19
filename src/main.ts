@@ -406,7 +406,7 @@ class MainScene extends Phaser.Scene {
     this.movePlayer(delta);
     this.moveEnemy(time);
 
-    if (!this.levelSevenOrbPhaseActive && this.fireKey.isDown && time - this.lastPlayerFire > PLAYER_FIRE_MS) {
+    if (!this.levelSevenOrbPhaseActive && this.fireKey.isDown) {
       this.firePlayerShot(time);
     }
 
