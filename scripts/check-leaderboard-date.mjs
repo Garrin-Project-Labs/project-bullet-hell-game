@@ -8,7 +8,8 @@ const checks = [
   ['Apps Script no longer writes ISO timestamp', !appScript.includes('new Date().toISOString()')],
   ['Worker stores short UTC M/D date', worker.includes('date.getUTCMonth() + 1') && worker.includes('date.getUTCDate()')],
   ['Worker no longer writes ISO timestamp', !worker.includes('new Date().toISOString()')],
-  ['Leaderboard renders date column', game.includes("const date = (entry.date || '--/--').slice(0, 5).padEnd(5, ' ')")]
+  ['Leaderboard renders normalized short date column', game.includes('private formatLeaderboardDate')],
+  ['Leaderboard removes graze count from display', !game.includes('G${entry.grazes}')]
 ];
 for (const [label, pass] of checks) {
   if (!pass) {

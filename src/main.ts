@@ -2031,10 +2031,22 @@ class MainScene extends Phaser.Scene {
       const rank = `${index + 1}.`.padEnd(3, ' ');
       const name = entry.name.padEnd(12, ' ');
       const score = String(entry.score).padStart(5, ' ');
-      const date = (entry.date || '--/--').slice(0, 5).padEnd(5, ' ');
-      lines.push(`${rank} ${name} ${score}  ${date}  L${entry.level}  G${entry.grazes}`);
+      const date = this.formatLeaderboardDate(entry.date).padEnd(5, ' ');
+      lines.push(`${rank} ${name} ${score}  ${date}  L${entry.level}`);
     });
     return lines.join('\n');
+  }
+
+  private formatLeaderboardDate(value: string) {
+    const shortDate = value.match(/\b(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?\b/);
+    if (shortDate) return `${Number(shortDate[1])}/${Number(shortDate[2])}`;
+
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return `${parsed.getMonth() + 1}/${parsed.getDate()}`;
+    }
+
+    return '--/--';
   }
 }
 
