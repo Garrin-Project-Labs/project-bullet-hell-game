@@ -198,9 +198,12 @@ class MainScene extends Phaser.Scene {
   private bullets!: Phaser.Physics.Arcade.Group;
   private playerShots!: Phaser.Physics.Arcade.Group;
   private powerUps!: Phaser.Physics.Arcade.Group;
+  private scoreLabelText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
   private hpText!: Phaser.GameObjects.Text;
+  private levelLabelText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
+  private upgradeLabelText!: Phaser.GameObjects.Text;
   private bossBar!: Phaser.GameObjects.Rectangle;
   private bossBarFill!: Phaser.GameObjects.Rectangle;
   private bossNameText!: Phaser.GameObjects.Text;
@@ -334,21 +337,73 @@ class MainScene extends Phaser.Scene {
     this.fireKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.input.keyboard!.addCapture([Phaser.Input.Keyboard.KeyCodes.SPACE]);
 
-    this.scoreText = this.add.text(24, 30, '', { fontFamily: 'monospace', fontSize: '14px', color: '#e8f8ff' });
+    this.add.rectangle(18, 118, 3, 196, 0x7cf7ff, 0.7)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(20);
+    this.add.rectangle(92, 92, 136, 2, 0xffd166, 0.62)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(20);
+    this.add.rectangle(86, 204, 124, 2, 0xc77dff, 0.5)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(20);
+    this.scoreLabelText = this.add.text(28, 28, 'SCORE', {
+      fontFamily: 'monospace',
+      fontSize: '13px',
+      color: '#7cf7ff',
+      stroke: '#020712',
+      strokeThickness: 3
+    }).setShadow(0, 0, '#7cf7ff', 8, true, true);
+    this.scoreText = this.add.text(28, 46, '', {
+      fontFamily: 'monospace',
+      fontSize: '28px',
+      color: '#fff7a8',
+      stroke: '#020712',
+      strokeThickness: 5
+    }).setShadow(0, 0, '#ff4d8d', 10, true, true);
     this.hpText = this.add.text(PLAY_RIGHT - 16, 12, '', { fontFamily: 'monospace', fontSize: '18px', color: '#e8f8ff' }).setOrigin(1, 0);
-    this.levelText = this.add.text(24, 58, '', { fontFamily: 'monospace', fontSize: '14px', color: '#c8f7ff' });
+    this.levelLabelText = this.add.text(28, 106, 'LEVEL', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#ff8fda',
+      stroke: '#020712',
+      strokeThickness: 3
+    }).setShadow(0, 0, '#ff4d8d', 7, true, true);
+    this.levelText = this.add.text(28, 124, '', {
+      fontFamily: 'monospace',
+      fontSize: '22px',
+      color: '#e8f8ff',
+      stroke: '#020712',
+      strokeThickness: 4
+    });
     this.add.rectangle(PLAY_CENTER, 70, GAME_WIDTH - 18, 2, 0x28344f, 0.8);
     this.add.rectangle(PLAY_CENTER, 30, 560, 26, 0x050714, 0.92).setStrokeStyle(2, 0x7cf7ff, 0.28);
     this.bossBar = this.add.rectangle(PLAY_CENTER, 30, 548, 16, 0x24111b, 0.95);
     this.bossBarFill = this.add.rectangle(PLAY_CENTER - 274, 30, 548, 16, 0xff4d8d, 1).setOrigin(0, 0.5);
     this.bossNameText = this.add.text(PLAY_CENTER, 45, '', { fontFamily: 'monospace', fontSize: '12px', color: '#ffd6e6' }).setOrigin(0.5, 0);
     this.powerText = this.add.text(PLAY_CENTER, 12, '', { fontFamily: 'monospace', fontSize: '16px', color: '#fff0a6' }).setOrigin(0.5, 0);
-    this.upgradeText = this.add.text(24, 118, '', { fontFamily: 'monospace', fontSize: '12px', color: '#c8f7ff', wordWrap: { width: HUD_WIDTH - 48 }, lineSpacing: 4 });
-    this.helpText = this.add.text(24, 236, 'CONTROLS\nMove: WASD/Arrows\nShoot: Space\nRestart: R', {
+    this.upgradeLabelText = this.add.text(28, 218, 'UPGRADES', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#c77dff',
+      stroke: '#020712',
+      strokeThickness: 3
+    }).setShadow(0, 0, '#c77dff', 7, true, true);
+    this.upgradeText = this.add.text(28, 240, '', {
       fontFamily: 'monospace',
       fontSize: '13px',
-      color: '#a9bad1',
-      lineSpacing: 5
+      color: '#dff9ff',
+      stroke: '#020712',
+      strokeThickness: 3,
+      wordWrap: { width: HUD_WIDTH - 52 },
+      lineSpacing: 6
+    });
+    this.helpText = this.add.text(28, 386, 'CONTROLS\nWASD / Arrows\nSpace to shoot\nR restart', {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      color: '#6f819a',
+      stroke: '#020712',
+      strokeThickness: 2,
+      lineSpacing: 4
     });
     this.debugHitboxText = this.add.text(24, 548, 'H: hitboxes', {
       fontFamily: 'monospace',
@@ -357,11 +412,11 @@ class MainScene extends Phaser.Scene {
     }).setDepth(21);
     this.debugHitboxGraphics = this.add.graphics().setDepth(40).setVisible(false);
 
-    this.add.rectangle(HUD_WIDTH / 2, 178, HUD_WIDTH - 36, 292, 0x050714, 0.78)
-      .setStrokeStyle(2, 0x7cf7ff, 0.3)
-      .setDepth(19);
+    this.scoreLabelText.setDepth(21);
     this.scoreText.setDepth(21);
+    this.levelLabelText.setDepth(21);
     this.levelText.setDepth(21);
+    this.upgradeLabelText.setDepth(21);
     this.upgradeText.setDepth(21);
     this.helpText.setDepth(21);
     this.debugHitboxText.setDepth(21);
@@ -1770,13 +1825,13 @@ class MainScene extends Phaser.Scene {
 
   private updateHud() {
     const level = this.currentLevelConfig();
-    this.scoreText?.setText(`SCORE ${this.score}\nGRAZES ${this.grazes}`);
+    this.scoreText?.setText(String(this.score).padStart(4, '0'));
     this.hpText?.setText(`HP ${'♥'.repeat(Math.max(0, this.hp))}`);
     this.levelText?.setText(this.levelProgressLabel());
     this.updateBossHealthBar(level);
     this.updatePowerUpHud();
     const spreadPct = Math.round(Math.min(0.45, this.spreadChanceUpgrades * SPREAD_CHANCE_UPGRADE) * 100);
-    this.upgradeText?.setText(`UPGRADES\nShot Speed +${this.bulletSpeedUpgrades}\nShot Size +${this.bulletSizeUpgrades}\nMove Speed +${this.moveSpeedUpgrades}\nSpread ${spreadPct}%`);
+    this.upgradeText?.setText(`SHOT SPD  +${this.bulletSpeedUpgrades}\nSHOT SIZE +${this.bulletSizeUpgrades}\nMOVE SPD  +${this.moveSpeedUpgrades}\nSPREAD    ${spreadPct}%`);
   }
 
   private updateBossHealthBar(level: LevelConfig) {
