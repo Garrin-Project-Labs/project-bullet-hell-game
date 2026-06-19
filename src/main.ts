@@ -36,7 +36,7 @@ const LEVEL_FIVE_WALL_ROWS = 13;
 const LEVEL_FIVE_WALL_LANES = 10;
 const LEVEL_SEVEN_INDEX = 6;
 const LEVEL_SEVEN_PHASE_MS = 10000;
-const LEVEL_SEVEN_PHASE_FIRE_MS = 780;
+const LEVEL_SEVEN_PHASE_FIRE_MS = 1800;
 const LEVEL_SEVEN_PHASE_BULLET_RADIUS = 23;
 const LEVEL_SEVEN_ORB_COUNT = 6;
 const FINAL_BOSS_INDEX = 9;
@@ -782,7 +782,6 @@ class MainScene extends Phaser.Scene {
       }
     });
 
-    this.time.delayedCall(360, () => this.fireLevelSevenOrbVolley(0));
     this.time.delayedCall(LEVEL_SEVEN_PHASE_MS, () => {
       timerEvent.remove(false);
       fireEvent.remove(false);
@@ -995,18 +994,27 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  private fireUndertowPattern(level: LevelConfig, base: number, speed: number) {
-    const laneCount = 5;
-    const drift = Math.sin(this.wave * 0.65) * 34;
+  private fireUndertowPattern(level: LevelConfig, _base: number, speed: number) {
+    const laneCount = 8;
+    const laneWidth = GAME_WIDTH / laneCount;
+    const playerLane = Phaser.Math.Clamp(Math.floor((this.player.x - PLAY_X) / laneWidth), 0, laneCount - 1);
+    const gapLane = Phaser.Math.Clamp(playerLane + Phaser.Math.Between(-1, 1), 0, laneCount - 1);
 
-    for (let i = 0; i < laneCount; i++) {
-      const x = PLAY_X + 90 + i * ((GAME_WIDTH - 180) / (laneCount - 1)) + drift;
-      const wobble = Math.sin(this.wave * 0.45 + i) * 0.18;
-      this.spawnEnemyBullet(Phaser.Math.Clamp(x, PLAY_X + 42, PLAY_RIGHT - 42), PLAY_TOP - 14, Math.PI / 2 + wobble, speed * 0.7, level.enemyColor, 12);
+    for (let lane = 0; lane < laneCount; lane++) {
+      if (lane === gapLane) continue;
+      const laneCenter = PLAY_X + lane * laneWidth + laneWidth / 2;
+      const scatter = Phaser.Math.Between(-18, 18);
+      const x = Phaser.Math.Clamp(laneCenter + scatter, PLAY_X + 42, PLAY_RIGHT - 42);
+      const wobble = Math.sin(this.wave * 0.45 + lane) * 0.07;
+      this.spawnEnemyBullet(x, PLAY_TOP - 14, Math.PI / 2 + wobble, speed * 0.58, level.enemyColor, 12);
     }
 
-    if (this.wave % 2 === 0) {
-      this.spawnEnemyBullet(this.enemy!.x, this.enemy!.y + 22, base, speed * 0.95, 0x7cf7ff, 10);
+    if (this.wave % 3 === 0) {
+      const markerX = PLAY_X + gapLane * laneWidth + laneWidth / 2;
+      const gapMarker = this.add.rectangle(markerX, PLAY_TOP + 28, laneWidth - 18, 7, 0x9cff6a, 0.75)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(17);
+      this.tweens.add({ targets: gapMarker, alpha: 0, duration: 360, onComplete: () => gapMarker.destroy() });
     }
   }
 
