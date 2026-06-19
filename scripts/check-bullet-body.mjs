@@ -5,10 +5,11 @@ if (!match) throw new Error('spawnEnemyBullet method not found');
 const body = match[0];
 const methodExpectations = [
   ['visible radius uses requested radius directly', 'const visibleRadius = radius;'],
-  ['group get uses requested radius', 'this.bullets.get(x, y, radius, color)'],
+  ['group get uses full-circle arc constructor args', 'this.bullets.get(x, y, radius, 0, 360, false, color, 1)'],
   ['body circle offset centers on resized arc', 'const hitOffset = visibleRadius - hitRadius;'],
   ['setCircle receives explicit offset', 'body.setCircle(hitRadius, hitOffset, hitOffset);'],
   ['enemy bullets store debug ids', "bullet.setData('debugId', debugId);"],
+  ['enemy bullets store asset type for debug labels', "bullet.setData('assetType', 'Phaser.GameObjects.Arc/full-circle')"],
   ['enemy bullets store speed for debug labels', "bullet.setData('speed', speed);"]
 ];
 const sourceExpectations = [

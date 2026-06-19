@@ -1166,17 +1166,20 @@ class MainScene extends Phaser.Scene {
 
   private spawnEnemyBullet(x: number, y: number, angle: number, speed: number, color: number, radius = BULLET_RADIUS, debugId = 'enemy-bullet') {
     const visibleRadius = radius;
-    const bullet = this.bullets.get(x, y, radius, color) as Phaser.GameObjects.Arc | null;
+    const bullet = this.bullets.get(x, y, radius, 0, 360, false, color, 1) as Phaser.GameObjects.Arc | null;
     if (!bullet) return undefined;
     bullet.setActive(true).setVisible(true).setData('grazed', false);
     bullet.setScale(1);
     bullet.setRadius(visibleRadius);
+    bullet.setStartAngle(0, false);
+    bullet.setEndAngle(360, false);
     bullet.setFillStyle(color, 1);
     bullet.setStrokeStyle(ENEMY_BULLET_STROKE_WIDTH, 0xffffff, 0.95);
     bullet.setBlendMode(Phaser.BlendModes.ADD);
     const hitRadius = visibleRadius * ENEMY_BULLET_HITBOX_SCALE;
     const hitOffset = visibleRadius - hitRadius;
     bullet.setData('debugId', debugId);
+    bullet.setData('assetType', 'Phaser.GameObjects.Arc/full-circle');
     bullet.setData('visibleRadius', visibleRadius);
     bullet.setData('hitRadius', hitRadius);
     bullet.setData('speed', speed);
@@ -1642,6 +1645,7 @@ class MainScene extends Phaser.Scene {
       const visibleRadius = Number(bullet.getData('visibleRadius') || bullet.radius || BULLET_RADIUS);
       const hitRadius = Number(bullet.getData('hitRadius') || visibleRadius);
       const debugId = String(bullet.getData('debugId') || 'enemy-bullet');
+      const assetType = String(bullet.getData('assetType') || 'unknown-asset');
       const speed = Math.round(Number(bullet.getData('speed') || 0));
       const angleDeg = Number(bullet.getData('angleDeg') || 0);
 
@@ -1649,7 +1653,7 @@ class MainScene extends Phaser.Scene {
       graphics.strokeCircle(bullet.x, bullet.y, visibleRadius);
       graphics.lineStyle(2, 0xff3355, 0.88);
       graphics.strokeCircle(bullet.x, bullet.y, hitRadius);
-      this.addDebugBulletLabel(bullet.x, bullet.y - visibleRadius - 12, `${debugId}\nr${visibleRadius}/h${hitRadius} v${speed} a${angleDeg}`);
+      this.addDebugBulletLabel(bullet.x, bullet.y - visibleRadius - 12, `${debugId}\n${assetType}\nr${visibleRadius}/h${hitRadius} v${speed} a${angleDeg}`);
     }
   }
 
