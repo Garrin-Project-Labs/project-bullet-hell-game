@@ -17,7 +17,7 @@ const PLAYER_HIT_ELLIPSE_Y = 21;
 const PLAYER_HIT_ELLIPSE_ROTATION = -0.78;
 const BULLET_RADIUS = 8;
 const MIN_ENEMY_BULLET_RADIUS = 8;
-const ENEMY_BULLET_HITBOX_SCALE = 0.72;
+const ENEMY_BULLET_HITBOX_SCALE = 1;
 const GRAZE_RADIUS = 20;
 const PLAYER_FIRE_MS = 170;
 const BASE_PLAYER_SHOT_SPEED = 440;
@@ -206,6 +206,8 @@ class MainScene extends Phaser.Scene {
   private miniLeaderboardTitle!: Phaser.GameObjects.Text;
   private miniLeaderboardText!: Phaser.GameObjects.Text;
   private helpText!: Phaser.GameObjects.Text;
+  private debugHitboxText!: Phaser.GameObjects.Text;
+  private debugHitboxGraphics?: Phaser.GameObjects.Graphics;
   private overlay?: Phaser.GameObjects.Container;
   private scoreSubmitted = false;
   private sharedLeaderboard: LeaderboardEntry[] = [];
@@ -249,6 +251,7 @@ class MainScene extends Phaser.Scene {
   private bulletSizeUpgrades = 0;
   private spreadChanceUpgrades = 0;
   private moveSpeedUpgrades = 0;
+  private debugHitboxes = false;
 
   constructor() {
     super('main');
@@ -292,6 +295,7 @@ class MainScene extends Phaser.Scene {
     this.bulletSizeUpgrades = 0;
     this.spreadChanceUpgrades = 0;
     this.moveSpeedUpgrades = 0;
+    this.debugHitboxes = false;
     this.scoreSubmitted = false;
     this.bossLaserActive = false;
     this.levelFiveWallActive = false;
@@ -322,7 +326,7 @@ class MainScene extends Phaser.Scene {
     this.powerUpOverlap = this.physics.add.overlap(this.player, this.powerUps, (_, powerUp) => this.collectPowerUp(powerUp as Phaser.GameObjects.Arc));
 
     this.cursors = this.input.keyboard!.createCursorKeys();
-    this.wasd = this.input.keyboard!.addKeys('W,A,S,D,R') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.wasd = this.input.keyboard!.addKeys('W,A,S,D,R,H') as Record<string, Phaser.Input.Keyboard.Key>;
     this.fireKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.input.keyboard!.addCapture([Phaser.Input.Keyboard.KeyCodes.SPACE]);
 
@@ -342,6 +346,12 @@ class MainScene extends Phaser.Scene {
       color: '#a9bad1',
       lineSpacing: 5
     });
+    this.debugHitboxText = this.add.text(24, 548, 'H: hitboxes', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#5d718a'
+    }).setDepth(21);
+    this.debugHitboxGraphics = this.add.graphics().setDepth(40).setVisible(false);
 
     this.add.rectangle(HUD_WIDTH / 2, 178, HUD_WIDTH - 36, 292, 0x050714, 0.78)
       .setStrokeStyle(2, 0x7cf7ff, 0.3)
@@ -350,6 +360,7 @@ class MainScene extends Phaser.Scene {
     this.levelText.setDepth(21);
     this.upgradeText.setDepth(21);
     this.helpText.setDepth(21);
+    this.debugHitboxText.setDepth(21);
 
     this.add.rectangle(PLAY_RIGHT + HUD_WIDTH / 2, PLAY_TOP + 96, HUD_WIDTH - 26, 174, 0x7cf7ff, 0.06)
       .setBlendMode(Phaser.BlendModes.ADD)
@@ -383,6 +394,12 @@ class MainScene extends Phaser.Scene {
       this.scene.restart();
       return;
     }
+    if (!this.leaderboardNameEntryActive && Phaser.Input.Keyboard.JustDown(this.wasd.H)) {
+      this.debugHitboxes = !this.debugHitboxes;
+      this.debugHitboxGraphics?.setVisible(this.debugHitboxes);
+      this.debugHitboxText?.setText(this.debugHitboxes ? 'H: hitboxes ON' : 'H: hitboxes');
+      if (!this.debugHitboxes) this.debugHitboxGraphics?.clear();
+    }
     if (this.gameOver || this.victory || this.levelTransitioning || this.waitingForUpgradeChoice || !this.enemy) return;
 
     this.movePlayer(delta);
@@ -396,6 +413,7 @@ class MainScene extends Phaser.Scene {
     this.expirePowerUp(time);
     this.cleanupOffscreen();
     this.checkGrazes();
+    this.drawDebugHitboxes();
   }
 
   private addBackground() {
@@ -1132,6 +1150,7 @@ class MainScene extends Phaser.Scene {
     bullet.setScale(visibleRadius / BULLET_RADIUS);
     bullet.setBlendMode(Phaser.BlendModes.ADD);
     const hitRadius = visibleRadius * ENEMY_BULLET_HITBOX_SCALE;
+    bullet.setData('visibleRadius', visibleRadius);
     bullet.setData('hitRadius', hitRadius);
     const body = bullet.body as Phaser.Physics.Arcade.Body;
     body.setCircle(hitRadius, BULLET_RADIUS - hitRadius, BULLET_RADIUS - hitRadius);
@@ -1580,6 +1599,32 @@ class MainScene extends Phaser.Scene {
     };
     this.bullets.getChildren().forEach(kill);
     this.playerShots.getChildren().forEach(kill);
+  }
+
+  private drawDebugHitboxes() {
+    const graphics = this.debugHitboxGraphics;
+    if (!graphics || !this.debugHitboxes) return;
+
+    graphics.clear();
+    graphics.lineStyle(2, 0x00ff66, 0.85);
+    graphics.strokeEllipse(
+      this.player.x,
+      this.player.y,
+      PLAYER_HIT_ELLIPSE_X * 2,
+      PLAYER_HIT_ELLIPSE_Y * 2
+    );
+
+    for (const obj of this.bullets.getChildren()) {
+      const bullet = obj as Phaser.GameObjects.Arc;
+      if (!bullet.active || !bullet.visible) continue;
+      const visibleRadius = Number(bullet.getData('visibleRadius') || BULLET_RADIUS);
+      const hitRadius = Number(bullet.getData('hitRadius') || visibleRadius);
+
+      graphics.lineStyle(1, 0xffffff, 0.28);
+      graphics.strokeCircle(bullet.x, bullet.y, visibleRadius);
+      graphics.lineStyle(2, 0xff3355, 0.88);
+      graphics.strokeCircle(bullet.x, bullet.y, hitRadius);
+    }
   }
 
   private clearProjectiles() {
