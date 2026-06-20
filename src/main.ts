@@ -135,7 +135,7 @@ const LEVELS: LevelConfig[] = [
     name: 'Azure Bloom',
     background: '#061421',
     enemyColor: 0x4dd7ff,
-    enemyHp: 20,
+    enemyHp: 26,
     fireMs: 720,
     bulletCount: 8,
     bulletSpeed: 108,
