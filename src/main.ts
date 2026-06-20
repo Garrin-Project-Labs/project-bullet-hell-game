@@ -1358,11 +1358,11 @@ class MainScene extends Phaser.Scene {
       strokeThickness: 4
     }).setOrigin(0.5).setDepth(20);
 
-    this.tweens.add({ targets: warning, alpha: 0.34, yoyo: true, repeat: 3, duration: 110 });
-    this.tweens.add({ targets: warningCore, alpha: 0.9, yoyo: true, repeat: 3, duration: 110 });
-    this.tweens.add({ targets: warningText, y: PLAY_TOP + 8, alpha: 0.35, yoyo: true, repeat: 3, duration: 110 });
+    this.tweens.add({ targets: warning, alpha: 0.34, yoyo: true, repeat: 4, duration: 110 });
+    this.tweens.add({ targets: warningCore, alpha: 0.9, yoyo: true, repeat: 4, duration: 110 });
+    this.tweens.add({ targets: warningText, y: PLAY_TOP + 8, alpha: 0.35, yoyo: true, repeat: 4, duration: 110 });
 
-    this.time.delayedCall(850, () => {
+    this.time.delayedCall(1020, () => {
       warning.destroy();
       warningCore.destroy();
       warningText.destroy();
