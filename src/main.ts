@@ -1913,16 +1913,18 @@ class MainScene extends Phaser.Scene {
     oscillator.stop(start + duration + 0.02);
   }
 
-  private playSfx(key: string, volumeScale = 1) {
+  private playSfx(key: string, volumeScale = 1, detuneCents = 0) {
     if (this.audioMuted) return;
     if (!this.sound || !this.cache.audio.exists(key)) return;
     const base = SFX_VOLUMES[key] ?? 0.4;
-    this.sound.play(key, { volume: base * volumeScale });
+    this.sound.play(key, { volume: base * volumeScale, detune: detuneCents });
   }
 
   private playShootSound() {
     // Real laser SFX, kept very quiet since it fires constantly.
-    this.playSfx('shoot');
+    // Randomize pitch slightly each shot so rapid fire doesn't sound robotic
+    // (the classic "machine gun" sample-repeat problem). +/- ~1.5 semitones.
+    this.playSfx('shoot', 1, Phaser.Math.Between(-150, 150));
   }
 
   private toggleMute() {
