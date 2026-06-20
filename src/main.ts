@@ -22,7 +22,7 @@ const BULLET_RADIUS = 8;
 const ENEMY_BULLET_HITBOX_SCALE = 1;
 const ENEMY_BULLET_STROKE_WIDTH = 3;
 const GRAZE_RADIUS = 20;
-const PLAYER_FIRE_MS = 170;
+const PLAYER_FIRE_MS = 190;
 const PLAYER_FIRE_RATE_UPGRADE = 0.87; // each fire-rate upgrade ≈ +15% shots/sec (lower delay)
 const MIN_PLAYER_FIRE_MS = 70; // floor so stacked upgrades can't break firing
 const BASE_PLAYER_SHOT_SPEED = 440;
@@ -145,7 +145,7 @@ const LEVELS: LevelConfig[] = [
     name: 'Rose Circuit',
     background: '#190718',
     enemyColor: 0xff6bd6,
-    enemyHp: 24,
+    enemyHp: 31,
     fireMs: 570,
     bulletCount: 11,
     bulletSpeed: 137,
@@ -155,7 +155,7 @@ const LEVELS: LevelConfig[] = [
     name: 'Solar Arcade',
     background: '#1b1305',
     enemyColor: 0xffe066,
-    enemyHp: 29,
+    enemyHp: 32,
     fireMs: 535,
     bulletCount: 12,
     bulletSpeed: 151,
