@@ -1,0 +1,7 @@
+directory:
+  listed: true
+  title: "Bullet Hell Game"
+  description: "Arcade bullet-hell MVP with leaderboard experiments."
+  pagesUrl: "https://garrin-project-labs.github.io/project-bullet-hell-game/"
+  tags: [game, bullet-hell]
+  status: "live"
